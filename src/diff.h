@@ -1,21 +1,28 @@
 #ifndef DIFF_H
 #define DIFF_H
 
+//>>>>>>>>>>>>>>>>>>>>>>>
+#define NODE(name, ...) \
+        NODE_##name ,
+//<<<<<<<<<<<<<<<<<<<<<<<
+
 enum TYPE_NODE
 {
-    NODE_OP     ,
-    NODE_NUM    ,
-    NODE_VAR    ,
+    #include "type_node.h"
 };
+
+//<<<<<<<<<<<<<<<<<<<<<<<
+#undef NODE
+//<<<<<<<<<<<<<<<<<<<<<<<
 
 //>>>>>>>>>>>>>>>>>>>>>>>
 #define OP(name, ...)   \
-        OP_##name ,
+        OP_##name   ,
 //<<<<<<<<<<<<<<<<<<<<<<<
 
 enum TYPE_OP
 {
-    #include "dsl.h"
+    #include "type_op.h"
 };
 
 //>>>>>>>>>>>>>>>>>>>>>>>
