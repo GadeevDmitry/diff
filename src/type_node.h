@@ -1,3 +1,0 @@
-NODE(OP)
-NODE(NUM)
-NODE(VAR)

@@ -1,4 +1,0 @@
-OP(ADD)
-OP(SUB)
-OP(MUL)
-OP(DIV)

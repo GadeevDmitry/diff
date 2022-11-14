@@ -1,33 +1,20 @@
 #ifndef DIFF_H
 #define DIFF_H
 
-//>>>>>>>>>>>>>>>>>>>>>>>
-#define NODE(name, ...) \
-        NODE_##name ,
-//<<<<<<<<<<<<<<<<<<<<<<<
-
 enum TYPE_NODE
 {
-    #include "type_node.h"
+    NODE_OP     ,
+    NODE_NUM    ,
+    NODE_VAR    ,
 };
-
-//<<<<<<<<<<<<<<<<<<<<<<<
-#undef NODE
-//<<<<<<<<<<<<<<<<<<<<<<<
-
-//>>>>>>>>>>>>>>>>>>>>>>>
-#define OP(name, ...)   \
-        OP_##name   ,
-//<<<<<<<<<<<<<<<<<<<<<<<
 
 enum TYPE_OP
 {
-    #include "type_op.h"
+    OP_ADD      ,
+    OP_SUB      ,
+    OP_MUL      ,
+    OP_DIV      ,
 };
-
-//>>>>>>>>>>>>>>>>>>>>>>>
-#undef OP
-//<<<<<<<<<<<<<<<<<<<<<<<
 
 struct Tree_node
 {
@@ -38,11 +25,28 @@ struct Tree_node
 
     union
     {
-        double  num_dbl;
+        double      dbl;
         TYPE_OP      op;
         const char *var;
     }
     value;
 };
+
+/*_________________________________FUNCTION_DECLARATION_________________________________*/
+
+void        Tree_node_ctor          (Tree_node *const node, TYPE_NODE type  ,
+                                            
+                                                            Tree_node *left ,
+                                                            Tree_node *right,
+                                            
+                                                            void      *value);
+
+Tree_node  *new_Tree_node           (                       TYPE_NODE type,
+                    
+                                                            Tree_node *left,
+                                                            Tree_node *right,
+                    
+                                                            void      *value);
+/*______________________________________________________________________________________*/
 
 #endif //DIFF_H
