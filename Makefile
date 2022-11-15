@@ -4,6 +4,7 @@ PROJ = src/diff
 
 LOG  = lib/logs/log
 RW   = lib/read_write/read_write
+ALG  = lib/algorithm/algorithm
 
 $(PROJ).o: $(PROJ).cpp
 	g++ -c $(PROJ).cpp -o $(PROJ).o $(FLAG)
@@ -13,3 +14,6 @@ $(LOG).o:  $(LOG).cpp
 
 $(RW).o:   $(RW).cpp
 	g++ -c $(RW).cpp -o $(RW).o $(FLAG)
+
+$(ALG).o:  $(ALG).cpp
+	g++ -c $(ALG).cpp -o $(ALG).o $(FLAG)
