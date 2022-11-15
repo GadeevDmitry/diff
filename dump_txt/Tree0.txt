@@ -1,0 +1,13 @@
+digraph {
+splines=ortho
+node[shape=record, style="rounded, filled", fontsize=8]
+node0[color="darkred", fillcolor="deeppink", label="{cur = 0x604000000010\n | prev = (nil)\n | type = 0\n | poison: 0\n | {left=0x604000000050 | right=0x604000000090}}"]
+node1[color="darkorange3", fillcolor="darkorange1", label="{cur = 0x604000000050\n | prev = 0x604000000010\n | type = 1\n | op: 0\n | {left=0x6040000000d0 | right=0x604000000110}}"]
+node2[color="darkblue", fillcolor="lightblue", label="{cur = 0x6040000000d0\n | prev = 0x604000000050\n | type = 3\n | var: x\n | {left=(nil) | right=(nil)}}"]
+node3[color="darkgreen", fillcolor="lightgreen", label="{cur = 0x604000000110\n | prev = 0x604000000050\n | type = 2\n | num: 2\n | {left=(nil) | right=(nil)}}"]
+node1->node2[xlabel="left ", color="black"]
+node1->node3[xlabel="right", color="black"]
+node4[color="darkred", fillcolor="deeppink", label="{cur = 0x604000000090\n | prev = 0x604000000010\n | type = 0\n | poison: 0\n | {left=(nil) | right=(nil)}}"]
+node0->node1[xlabel="left ", color="black"]
+node0->node4[xlabel="right", color="black"]
+}

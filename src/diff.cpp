@@ -192,8 +192,11 @@ bool Tree_parsing_main(Tree_node *const root, const char *file)
                                    &data_pos  ))
     {
         log_error("Syntax_error in log_file.\n");
+        
+        log_free((char *) data);
         return false;
     }
+    log_free((char *) data);
     return true;
 }
 
@@ -211,7 +214,7 @@ static bool Tree_parsing_execute(Tree_node *const root, const char *data     ,
     while (*data_pos < data_size && data[*data_pos] != '\0')
     {
         char cur_char  = data[*data_pos];
-        *data_pos = *data_pos + 1;
+        *data_pos      =  1 + *data_pos ;
 
         if      (cur_char == '('   ) { if (!push_next_node(&cur_node, root     )) return false; }
         else if (cur_char == ')'   ) { if (!push_prev_node(&cur_node, root     )) return false; }
@@ -242,6 +245,20 @@ static bool push_next_node(Tree_node **node, Tree_node *const root)
         return true;
     }
 
+    if ((*node)->left != nullptr)
+    {
+        if ((*node)->right->type == NODE_UNDEF)
+        {
+            *node = (*node)->right;
+            return true;
+        }
+        else
+        {
+            log_error("Redefinition of node.\n");
+            return false;
+        }
+    }
+
     (*node)->left  = new_node_undef(*node);
     (*node)->right = new_node_undef(*node);
     
@@ -255,9 +272,7 @@ static bool push_next_node(Tree_node **node, Tree_node *const root)
         return false;
     }
 
-    if ((*node)->left->type == NODE_UNDEF) *node = (*node)->left ;
-    else                                   *node = (*node)->right;
-
+    *node = (*node)->left;
     return true;
 }
 
