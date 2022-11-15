@@ -20,7 +20,7 @@ struct Tree_node
 {
     TYPE_NODE type;
 
-    Tree_node *left;
+    Tree_node * left;
     Tree_node *right;
 
     union
@@ -33,6 +33,16 @@ struct Tree_node
 };
 
 /*_________________________________FUNCTION_DECLARATION_________________________________*/
+
+void        node_op_ctor    (Tree_node *const node, TYPE_OP          value,
+                                                    Tree_node *const  left,
+                                                    Tree_node *const right);
+void        node_num_ctor   (Tree_node *const node,     const double value);
+void        node_var_ctor   (Tree_node *const node);
+
+Tree_node  *new_node_op     (TYPE_OP      value);
+Tree_node  *new_node_num    (const double value);
+Tree_node  *new_node_var    ();
 
 /*______________________________________________________________________________________*/
 

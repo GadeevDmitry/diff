@@ -10,9 +10,9 @@
 
 /*_____________________________________________________________________*/
 
-void node_op_ctor(Tree_node *const node,    TYPE_OP                value,
-                                            const Tree_node *const  left,
-                                            const Tree_node *const right)
+void node_op_ctor(Tree_node *const node,    TYPE_OP          value,
+                                            Tree_node *const  left,
+                                            Tree_node *const right)
 {
     assert(node  != nullptr);
     assert(left  != nullptr);
@@ -62,7 +62,7 @@ Tree_node *new_node_op(TYPE_OP value)
         return nullptr;
     }
 
-    node_op_ctor(new_node, value, left, right);
+    node_op_ctor(new_node, value, new_left, new_right);
     return       new_node;
 }
 
@@ -71,7 +71,7 @@ Tree_node *new_node_num(const double value)
     Tree_node *new_node = (Tree_node *) calloc(1, sizeof(Tree_node));
     if        (new_node == nullptr) return nullptr;
 
-    node_num_ctor(new_node);
+    node_num_ctor(new_node, value);
     return        new_node ;
 }
 
