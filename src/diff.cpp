@@ -228,7 +228,7 @@ static bool Tree_parsing_execute(Tree_node *const root, const char *data     ,
 
     if (cur_node != nullptr)
     {
-        log_error("Finishes not in nullptr-value");
+        log_error("Finishes not in nullptr-value.\n");
         return false;
     }
     return true;
