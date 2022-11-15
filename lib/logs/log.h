@@ -34,17 +34,19 @@
 
 /*________________________________USER_FUNCTION_DECLARATIONS_________________________________*/
 
-void log_message       (const char *fmt, ...);
-void log_error         (const char *fmt, ...);
-void log_warning       (const char *fmt, ...);
-void log_header        (const char *fmt, ...);
+void    log_message     (const char *fmt, ...);
+void    log_error       (const char *fmt, ...);
+void    log_warning     (const char *fmt, ...);
+void    log_header      (const char *fmt, ...);
 
-void log_char_ptr      (const char *str_name, const char *str);
+void    log_char_ptr    (const char *str_name, const char *str);
 
-void log_param_place   (const char   *file,
+void    log_param_place (const char   *file,
                         const char   *func,
                         const int     line);
 
+void   *log_calloc      (size_t number, size_t size);
+void    log_free        (void *ptr);
 /*___________________________________________________________________________________________*/
 
 #endif //LOG_H

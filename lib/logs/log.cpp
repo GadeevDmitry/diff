@@ -60,6 +60,9 @@ void log_param_place   (const char   *file,
                         const char   *func,
                         const int     line);
 
+void *log_calloc(size_t number, size_t size);
+void  log_free  (void *ptr);
+
 /*______________________________ADDITIONAL_FUNCTION_DECLARATIONS_____________________________*/
 
 /**
@@ -81,6 +84,7 @@ static void LOG_STREAM_CLOSE ();
 
 static FILE *LOG_STREAM            = nullptr;
 static int  _OPEN_CLOSE_LOG_STREAM = LOG_STREAM_OPEN();
+static int   DYNAMIC_MEMORY        = 0;
 
 static int LOG_STREAM_OPEN()
 {
@@ -102,6 +106,9 @@ static int LOG_STREAM_OPEN()
 static void LOG_STREAM_CLOSE()
 {
     assert (LOG_STREAM != nullptr);
+
+    if (DYNAMIC_MEMORY == 0) log_message(GREEN "DYNAMIC_MEMORY = 0. \n" CANCEL                );
+    else                     log_message(RED   "DYNAMIC_MEMORY = %d.\n" CANCEL, DYNAMIC_MEMORY);
 
     fprintf(LOG_STREAM, "\n\n\"%s\" CLOSING IS OK\n\n", LOG_FILE);
     fclose (LOG_STREAM);
@@ -182,4 +189,20 @@ void log_warning(const char *fmt, ...)
     fprintf (LOG_STREAM, CANCEL);
 
     va_end(ap);
+}
+
+void *log_calloc(size_t number, size_t size)
+{
+    if ((number * size) == 0) return nullptr;
+
+    ++DYNAMIC_MEMORY;
+    return calloc(number, size);
+}
+
+void log_free(void *ptr)
+{
+    if (ptr == nullptr) return;
+
+    --DYNAMIC_MEMORY;
+    free(ptr);
 }
