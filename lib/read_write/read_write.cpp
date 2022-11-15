@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include "read_write.h"
+#include "../logs/log.h"
 
 bool write_file(const char *file_name, void *data, const int data_size)
 {
@@ -40,7 +41,7 @@ void *read_file(const char *file_name, int *const size_ptr)
     FILE *stream  = fopen(file_name, "r");
     if (  stream == nullptr) return nullptr;
 
-    void *data_ptr = calloc((size_t) *size_ptr, sizeof(char));
+    void *data_ptr = log_calloc((size_t) *size_ptr, sizeof(char));
 
     fread (data_ptr, sizeof(char), (size_t) *size_ptr, stream);
     fclose(stream);

@@ -5,6 +5,7 @@
 #include <assert.h>
 
 #include "algorithm.h"
+#include "../logs/log.h"
 
 void my_swap(void *a, void *b, const int elem_size)
 {
