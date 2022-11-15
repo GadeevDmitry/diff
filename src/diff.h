@@ -34,19 +34,6 @@ struct Tree_node
 
 /*_________________________________FUNCTION_DECLARATION_________________________________*/
 
-void        Tree_node_ctor          (Tree_node *const node, TYPE_NODE type  ,
-                                            
-                                                            Tree_node *left ,
-                                                            Tree_node *right,
-                                            
-                                                            void      *value);
-
-Tree_node  *new_Tree_node           (                       TYPE_NODE type,
-                    
-                                                            Tree_node *left,
-                                                            Tree_node *right,
-                    
-                                                            void      *value);
 /*______________________________________________________________________________________*/
 
 #endif //DIFF_H
