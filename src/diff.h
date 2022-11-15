@@ -66,6 +66,8 @@ void        Tree_dtor           (Tree_node *const root);
 
 bool        Tree_parsing_main   (Tree_node *const root, const char *file);
 
+void        Tree_dump           (Tree_node *root);
+
 /*______________________________________________________________________________________*/
 
 #endif //DIFF_H

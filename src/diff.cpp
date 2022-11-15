@@ -12,6 +12,7 @@
 #include "../lib/logs/log.h"
 #include "../lib/read_write/read_write.h"
 #include "../lib/algorithm/algorithm.h"
+#include "../lib/graph_dump/graph_dump.h"
 
 /*___________________________STATIC_FUNCTIONS__________________________*/
 
@@ -32,6 +33,8 @@ static bool get_dbl             (double *const dbl,     const char *data     ,
 static bool put_var             (Tree_node *const node);
 static bool put_op              (Tree_node *const node, const char possible_op);
 
+static void Tree_dump_dfs       (Tree_node *node, int *const node_number, FILE *const stream);
+static void Tree_node_describe  (Tree_node *node, int *const node_number, FILE *const stream);
 /*_____________________________________________________________________*/
 
 void node_op_ctor(Tree_node *const node,    Tree_node *const  left,
@@ -362,6 +365,124 @@ static bool put_op(Tree_node *const node, const char possible_op)
     }
 
     return true;
+}
+
+/*_____________________________________________________________________*/
+
+void Tree_dump(Tree_node *root)
+{
+    assert(root);
+    
+    static int cur = 0;
+
+    char    dump_txt[graph_size_file] = "";
+    char    dump_png[graph_size_file] = "";
+
+    sprintf(dump_txt, "dump_txt/Tree%d.txt", cur);
+    sprintf(dump_png, "dump_png/Tree%d.png", cur);
+
+    FILE *stream_txt =  fopen(dump_txt, "w");
+    if   (stream_txt == nullptr)
+    {
+        log_error("Can't open dump file.\n");
+        return;
+    }
+
+    setvbuf(stream_txt, nullptr, _IONBF, 0);
+    fprintf(stream_txt, "digraph {\n"
+                        "splines=ortho\n"
+                        "node[shape=record, style=\"rounded, filled\", fontsize=8]\n");
+    
+    int node_number = 0;
+    Tree_dump_dfs(root, &node_number, stream_txt);
+
+    fprintf(stream_txt, "}\n");
+
+    char cmd[graph_size_cmd] = "";
+    sprintf    (cmd, "dot %s -T png -o %s", dump_txt, dump_png);
+    system     (cmd);
+    log_message("<img src=%s>\n", dump_png);
+
+    fclose(stream_txt);
+}
+
+static void Tree_dump_dfs(Tree_node *node, int *const node_number, FILE *const stream)
+{
+    assert(node);
+    assert(stream);
+
+    int number_cur =  *node_number;
+    Tree_node_describe(node, node_number, stream);
+
+    int number_left  = *node_number;
+    if (node->left)  Tree_dump_dfs(node->left, node_number, stream);
+
+    int number_right = *node_number;
+    if (node->right) Tree_dump_dfs(node->right, node_number, stream);
+
+    if (node->left ) fprintf(stream, "node%d->node%d[xlabel=\"left \", color=\"black\"]\n", number_cur, number_left );
+    if (node->right) fprintf(stream, "node%d->node%d[xlabel=\"right\", color=\"black\"]\n", number_cur, number_right);
+}
+
+static void Tree_node_describe(Tree_node *node, int *const node_number, FILE *const stream)
+{
+    assert(node);
+    assert(stream);
+
+    GRAPHVIZ_COLOR fillcolor = WHITE;
+    GRAPHVIZ_COLOR     color = WHITE;
+    
+    switch (node->type)
+    {
+        case NODE_VAR:  fillcolor = LIGHT_BLUE;
+                            color =  DARK_BLUE;
+                        break;
+        
+        case NODE_NUM:  fillcolor = LIGHT_GREEN;
+                            color =  DARK_GREEN;
+                        break;
+
+        case NODE_OP:   fillcolor = LIGHT_ORANGE;
+                            color =  DARK_ORANGE;
+                        break;
+
+        case NODE_UNDEF:fillcolor = LIGHT_PINK;
+                            color =  DARK_RED ;
+                        break;
+        
+        default:        fillcolor = LIGHT_GREY;
+                            color =      BLACK;
+                        break;
+    }
+
+    fprintf(stream, "node%d[color=\"%s\", fillcolor=\"%s\", label=\"{cur = %p\\n | prev = %p\\n | type = %d\\n | ",
+                    *node_number,
+                                    graphviz_color_names[color],
+                                                      graphviz_color_names[fillcolor],
+                                                                           node,
+                                                                                          node->prev,
+                                                                                                         node->type);
+    switch (node->type)
+    {
+        case NODE_VAR:  fprintf(stream, "var: %s\\n | ", node->value.var);
+                        break;
+
+        case NODE_NUM:  fprintf(stream, "num: %lg\\n | ", node->value.dbl);
+                        break;
+        
+        case NODE_OP:   fprintf(stream, "op: %d\\n | ", node->value.op);
+                        break;
+        
+        case NODE_UNDEF:fprintf(stream, "poison: %lg\\n | ", node->value.dbl);
+                        break;
+        
+        default:        fprintf(stream, "?\\n | ");
+                        break;
+    }
+
+    fprintf(stream, "{left=%p | right=%p}}\"]\n", node->left, node->right);
+
+    ++*node_number;
 }
 
 /*_____________________________________________________________________*/
