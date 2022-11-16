@@ -390,7 +390,11 @@ static bool put_op(Tree_node *const node, const char possible_op)
 
 void Tree_dump_graphviz(Tree_node *root)
 {
-    assert(root);
+    if (root == nullptr)
+    {
+        log_warning("Nullptr-root passed in Tree_dump_graphviz.\n");
+        return;
+    }
     
     static int cur = 0;
 
@@ -514,5 +518,7 @@ static void print_Tree_node(Tree_node *node, int *const node_number, FILE *const
                                                                                                                                            node->right);
     *node_number = *node_number + 1;
 }
+
+/*_____________________________________________________________________*/
 
 /*_____________________________________________________________________*/

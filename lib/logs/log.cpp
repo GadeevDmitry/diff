@@ -107,6 +107,8 @@ static void LOG_STREAM_CLOSE()
 {
     assert (LOG_STREAM != nullptr);
 
+    fprintf(LOG_STREAM, "\n");
+    
     if (DYNAMIC_MEMORY == 0) log_message(GREEN "DYNAMIC_MEMORY = 0. \n" CANCEL                );
     else                     log_message(RED   "DYNAMIC_MEMORY = %d.\n" CANCEL, DYNAMIC_MEMORY);
 
