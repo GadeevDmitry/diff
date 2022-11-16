@@ -35,6 +35,10 @@ static bool put_op              (Tree_node *const node, const char possible_op);
 
 static void Tree_dump_dfs       (Tree_node *node, int *const node_number, FILE *const stream);
 static void Tree_node_describe  (Tree_node *node, int *const node_number, FILE *const stream);
+static void print_Tree_node     (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
+                                                                                                GRAPHVIZ_COLOR     color, 
+                                                                                                const char    *node_type,
+                                                                                                const char        *value);
 /*_____________________________________________________________________*/
 
 void node_op_ctor(Tree_node *const node,    Tree_node *const  left,
@@ -446,58 +450,69 @@ static void Tree_node_describe(Tree_node *node, int *const node_number, FILE *co
 
     GRAPHVIZ_COLOR fillcolor = WHITE;
     GRAPHVIZ_COLOR     color = WHITE;
-    
+
+    const char  *node_type = nullptr;
+    char value[VALUE_SIZE] =      {};
+
     switch (node->type)
     {
-        case NODE_VAR:  fillcolor = LIGHT_BLUE;
-                            color =  DARK_BLUE;
+        case NODE_VAR:      color =  DARK_BLUE;
+                        fillcolor = LIGHT_BLUE;
+                        node_type = "NODE_VAR";
+                        value[0]  =        'x';
                         break;
         
-        case NODE_NUM:  fillcolor = LIGHT_GREEN;
-                            color =  DARK_GREEN;
+        case NODE_NUM:      color =  DARK_GREEN;
+                        fillcolor = LIGHT_GREEN;
+                        node_type =  "NODE_NUM";
+                        sprintf(value, "dbl: %lg", node->value.dbl);
                         break;
 
-        case NODE_OP:   fillcolor = LIGHT_ORANGE;
-                            color =  DARK_ORANGE;
+        case NODE_OP:       color =  DARK_ORANGE;
+                        fillcolor = LIGHT_ORANGE;
+                        node_type =    "NODE_OP";
+                        sprintf(value, "op: %d", node->value.op);
                         break;
 
-        case NODE_UNDEF:fillcolor = LIGHT_PINK;
-                            color =  DARK_RED ;
+        case NODE_UNDEF:    color =    DARK_RED ;
+                        fillcolor =   LIGHT_PINK;
+                        node_type = "NODE_UNDEF";
+                        value[0]  =          '?';
                         break;
         
-        default:        fillcolor = LIGHT_GREY;
-                            color =      BLACK;
+        default:            color =             BLACK;
+                        fillcolor =        LIGHT_GREY;
+                        node_type = "UNDEF_NODE_TYPE";
+                        value[0]  =               '?';
                         break;
     }
+    print_Tree_node(node, node_number, stream,  fillcolor,
+                                                    color,
+                                                node_type,
+                                                value    );
 
-    fprintf(stream, "node%d[color=\"%s\", fillcolor=\"%s\", label=\"{cur = %p\\n | prev = %p\\n | type = %d\\n | ",
-                    *node_number,
+}
+
+static void print_Tree_node(Tree_node *node, int *const node_number, FILE *const stream,    GRAPHVIZ_COLOR fillcolor,
+                                                                                            GRAPHVIZ_COLOR     color, 
+                                                                                            const char    *node_type,
+                                                                                            const char        *value)
+{
+    assert(node      != nullptr);
+    assert(node_type != nullptr);
+    assert(value     != nullptr);
+
+    fprintf(stream, "node%d[color=\"%s\", fillcolor=\"%s\", label=\"{cur = %p\\n | prev = %p\\n | type = %s\\n | %s | {left = %p | right = %p}}\"]\n",
+                        *node_number,
                                     graphviz_color_names[color],
                                                       graphviz_color_names[fillcolor],
                                                                            node,
                                                                                           node->prev,
-                                                                                                         node->type);
-    switch (node->type)
-    {
-        case NODE_VAR:  fprintf(stream, "var: %s\\n | ", node->value.var);
-                        break;
-
-        case NODE_NUM:  fprintf(stream, "num: %lg\\n | ", node->value.dbl);
-                        break;
-        
-        case NODE_OP:   fprintf(stream, "op: %d\\n | ", node->value.op);
-                        break;
-        
-        case NODE_UNDEF:fprintf(stream, "poison: %lg\\n | ", node->value.dbl);
-                        break;
-        
-        default:        fprintf(stream, "?\\n | ");
-                        break;
-    }
-
-    fprintf(stream, "{left=%p | right=%p}}\"]\n", node->left, node->right);
-
-    ++*node_number;
+                                                                                                         node_type,
+                                                                                                                 value,
+                                                                                                                              node->left,
+                                                                                                                                           node->right);
+    *node_number = *node_number + 1;
 }
 
 /*_____________________________________________________________________*/
