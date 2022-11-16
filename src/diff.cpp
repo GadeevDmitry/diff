@@ -14,31 +14,123 @@
 #include "../lib/algorithm/algorithm.h"
 #include "../lib/graph_dump/graph_dump.h"
 
-/*___________________________STATIC_FUNCTIONS__________________________*/
+/*___________________________STATIC_FUNCTION___________________________*/
+
+static unsigned Tree_verify     (                           Tree_node *const root);
+static void     Tree_verify_dfs (unsigned int *const err,   Tree_node *const root,
+                                                            Tree_node *const node);
 
 static void dfs_dtor(Tree_node *const node);
 
-static bool Tree_parsing_execute(Tree_node *const root, const char *data     ,
-                                                        const int   data_size,
-                                                        int *const  data_pos );
+static bool Tree_parsing_execute    (Tree_node *const root, const char *data     ,
+                                                            const int   data_size,
+                                                            int *const  data_pos );
 
-static bool push_next_node      (Tree_node **node, Tree_node *const root);
-static bool push_prev_node      (Tree_node **node, Tree_node *const root);
+static bool push_next_node          (Tree_node **node, Tree_node *const root);
+static bool push_prev_node          (Tree_node **node, Tree_node *const root);
 
-static bool put_dbl             (Tree_node *const node, const char *data     ,
-                                                        int *const  data_pos );
-static bool get_dbl             (double *const dbl,     const char *data     ,
-                                                        int *const  data_pos );
+static bool put_dbl                 (Tree_node *const node, const char *data     ,
+                                                            int *const  data_pos );
+static bool get_dbl                 (double *const dbl,     const char *data     ,
+                                                            int *const  data_pos );
 
-static bool put_var             (Tree_node *const node);
-static bool put_op              (Tree_node *const node, const char possible_op);
+static bool put_var                 (Tree_node *const node);
+static bool put_op                  (Tree_node *const node, const char possible_op);
 
-static void Tree_dump_dfs       (Tree_node *node, int *const node_number, FILE *const stream);
-static void Tree_node_describe  (Tree_node *node, int *const node_number, FILE *const stream);
-static void print_Tree_node     (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
-                                                                                                GRAPHVIZ_COLOR     color, 
-                                                                                                const char    *node_type,
-                                                                                                const char        *value);
+static void Tree_dump_graphviz_dfs  (Tree_node *node, int *const node_number, FILE *const stream);
+static void Tree_node_describe      (Tree_node *node, int *const node_number, FILE *const stream);
+static void print_Tree_node         (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
+                                                                                                    GRAPHVIZ_COLOR     color, 
+                                                                                                    const char    *node_type,
+                                                                                                    const char        *value);
+/*___________________________STATIC_CONST______________________________*/
+
+static const Tree_node default_node = 
+{
+    NODE_UNDEF  , // TYPE_NODE
+
+    nullptr     , // left
+    nullptr     , // right
+    nullptr     , // prev
+
+        0.0       // dbl
+};
+
+static const int VALUE_SIZE = 100;
+
+enum VERIFY_ERROR
+{
+    OK                  ,
+
+    NULLPTR_ROOT        ,
+    NULLPTR_PREV        ,
+    NULLPTR_LEFT        ,
+    NULLPTR_RIGHT       ,
+
+    UNDEF_TYPE_NODE     ,
+    
+    TERMINAL_OP         ,
+    NON_TERMINAL_VAR    ,
+    NON_TERMINAL_NUM    ,
+};
+
+static const char *verify_error_messages[] =
+{
+    "Tree is OK.\n"                         ,
+
+    "Root  is nullptr.\n"                   ,
+    "Prev  is nullptr.\n"                   ,
+    "Left  is nullptr.\n"                   ,
+    "Right is nullptr.\n"                   ,
+
+    "Type of node is undef.\n"              ,
+
+    "Operation-type node is     terminal.\n",
+    " Variable-type node is not terminal.\n",
+    "   Number-type node is not terminal.\n",
+};
+
+/*_____________________________________________________________________*/
+
+static unsigned Tree_verify(Tree_node *const root)
+{
+    if (root == nullptr) return 1 << NULLPTR_ROOT;
+
+    unsigned int err = 0;
+    Tree_verify_dfs(&err, root, root);
+
+    return err;
+}
+
+static void Tree_verify_dfs(unsigned int *const err,    Tree_node *const root,
+                                                        Tree_node *const node)
+{
+    assert(node != nullptr);
+    assert(root != nullptr);
+
+    if (node->left ) Tree_verify_dfs(err, root, node->left );
+    if (node->right) Tree_verify_dfs(err, root, node->right);
+
+    bool is_terminal_node = false;
+
+    if (node->right == nullptr &&
+        node->left  == nullptr   ) is_terminal_node = true;
+
+    if (node->prev  == nullptr && node != root) (*err) = (*err) | (1 << NULLPTR_PREV   );
+    if (node->left  == nullptr && node->right ) (*err) = (*err) | (1 << NULLPTR_LEFT   );
+    if (node->right == nullptr && node->left  ) (*err) = (*err) | (1 << NULLPTR_RIGHT  );
+    
+    if (node->type  == NODE_UNDEF)
+    {
+        (*err) = (*err) | (1 << UNDEF_TYPE_NODE);
+        return;
+    }
+    
+    if      (node->type == NODE_OP  &&  is_terminal_node) (*err) = (*err) | (1 << TERMINAL_OP     );
+    else if (node->type == NODE_NUM && !is_terminal_node) (*err) = (*err) | (1 << NON_TERMINAL_NUM);
+    else if (node->type == NODE_VAR && !is_terminal_node) (*err) = (*err) | (1 << NON_TERMINAL_VAR);
+}
+
 /*_____________________________________________________________________*/
 
 void node_op_ctor(Tree_node *const node,    Tree_node *const  left,
@@ -390,6 +482,8 @@ static bool put_op(Tree_node *const node, const char possible_op)
 
 void Tree_dump_graphviz(Tree_node *root)
 {
+    log_header("Tree_dump_graphviz\n");
+
     if (root == nullptr)
     {
         log_warning("Nullptr-root passed in Tree_dump_graphviz.\n");
@@ -417,7 +511,7 @@ void Tree_dump_graphviz(Tree_node *root)
                         "node[shape=record, style=\"rounded, filled\", fontsize=8]\n");
     
     int node_number = 0;
-    Tree_dump_dfs(root, &node_number, stream_txt);
+    Tree_dump_graphviz_dfs(root, &node_number, stream_txt);
 
     fprintf(stream_txt, "}\n");
 
@@ -429,7 +523,7 @@ void Tree_dump_graphviz(Tree_node *root)
     fclose(stream_txt);
 }
 
-static void Tree_dump_dfs(Tree_node *node, int *const node_number, FILE *const stream)
+static void Tree_dump_graphviz_dfs(Tree_node *node, int *const node_number, FILE *const stream)
 {
     assert(node);
     assert(stream);
@@ -438,10 +532,10 @@ static void Tree_dump_dfs(Tree_node *node, int *const node_number, FILE *const s
     Tree_node_describe(node, node_number, stream);
 
     int number_left  = *node_number;
-    if (node->left)  Tree_dump_dfs(node->left, node_number, stream);
+    if (node->left)  Tree_dump_graphviz_dfs(node->left, node_number, stream);
 
     int number_right = *node_number;
-    if (node->right) Tree_dump_dfs(node->right, node_number, stream);
+    if (node->right) Tree_dump_graphviz_dfs(node->right, node_number, stream);
 
     if (node->left ) fprintf(stream, "node%d->node%d[xlabel=\"left \", color=\"black\"]\n", number_cur, number_left );
     if (node->right) fprintf(stream, "node%d->node%d[xlabel=\"right\", color=\"black\"]\n", number_cur, number_right);

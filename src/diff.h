@@ -34,17 +34,6 @@ struct Tree_node
     value;
 };
 
-const Tree_node default_node = 
-{
-    NODE_UNDEF  , // TYPE_NODE
-
-    nullptr     , // left
-    nullptr     , // right
-    nullptr     , // prev
-
-        0.0       // dbl
-};
-
 /*______________________________________FUNCTIONS_______________________________________*/
 
 void        node_op_ctor        (Tree_node *const node, Tree_node *const  left,
@@ -69,7 +58,5 @@ bool        Tree_parsing_main   (Tree_node *const root, const char *file);
 void        Tree_dump_graphviz  (Tree_node *root);
 
 /*______________________________________________________________________________________*/
-
-const int VALUE_SIZE = 100;
 
 #endif //DIFF_H
