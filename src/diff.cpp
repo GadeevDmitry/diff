@@ -388,7 +388,7 @@ static bool put_op(Tree_node *const node, const char possible_op)
 
 /*_____________________________________________________________________*/
 
-void Tree_dump(Tree_node *root)
+void Tree_dump_graphviz(Tree_node *root)
 {
     assert(root);
     
