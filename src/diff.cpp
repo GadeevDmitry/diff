@@ -16,11 +16,12 @@
 
 /*___________________________STATIC_FUNCTION___________________________*/
 
-static unsigned Tree_verify     (                           Tree_node *const root);
-static void     Tree_verify_dfs (unsigned int *const err,   Tree_node *const root,
-                                                            Tree_node *const node);
+static bool Tree_verify             (                           Tree_node *const root);
+static void Tree_verify_dfs         (unsigned int *const err,   Tree_node *const root,
+                                                                Tree_node *const node);
+static void print_error_messages    (unsigned int        err);
 
-static void dfs_dtor(Tree_node *const node);
+static void dfs_dtor                (Tree_node *const node);
 
 static bool Tree_parsing_execute    (Tree_node *const root, const char *data     ,
                                                             const int   data_size,
@@ -43,6 +44,7 @@ static void print_Tree_node         (Tree_node *node, int *const node_number, FI
                                                                                                     GRAPHVIZ_COLOR     color, 
                                                                                                     const char    *node_type,
                                                                                                     const char        *value);
+
 /*___________________________STATIC_CONST______________________________*/
 
 static const Tree_node default_node = 
@@ -60,8 +62,6 @@ static const int VALUE_SIZE = 100;
 
 enum VERIFY_ERROR
 {
-    OK                  ,
-
     NULLPTR_ROOT        ,
     NULLPTR_PREV        ,
     NULLPTR_LEFT        ,
@@ -76,8 +76,6 @@ enum VERIFY_ERROR
 
 static const char *verify_error_messages[] =
 {
-    "Tree is OK.\n"                         ,
-
     "Root  is nullptr.\n"                   ,
     "Prev  is nullptr.\n"                   ,
     "Left  is nullptr.\n"                   ,
@@ -92,14 +90,16 @@ static const char *verify_error_messages[] =
 
 /*_____________________________________________________________________*/
 
-static unsigned Tree_verify(Tree_node *const root)
+static bool Tree_verify(Tree_node *const root)
 {
-    if (root == nullptr) return 1 << NULLPTR_ROOT;
-
     unsigned int err = 0;
-    Tree_verify_dfs(&err, root, root);
 
-    return err;
+    if (root == nullptr)  err = 1 << NULLPTR_ROOT;
+    else Tree_verify_dfs(&err, root, root);
+    
+    print_error_messages(err);
+
+    return err == 0;
 }
 
 static void Tree_verify_dfs(unsigned int *const err,    Tree_node *const root,
@@ -129,6 +129,22 @@ static void Tree_verify_dfs(unsigned int *const err,    Tree_node *const root,
     if      (node->type == NODE_OP  &&  is_terminal_node) (*err) = (*err) | (1 << TERMINAL_OP     );
     else if (node->type == NODE_NUM && !is_terminal_node) (*err) = (*err) | (1 << NON_TERMINAL_NUM);
     else if (node->type == NODE_VAR && !is_terminal_node) (*err) = (*err) | (1 << NON_TERMINAL_VAR);
+}
+
+static void print_error_messages(unsigned int err)
+{
+    if (err == 0)
+    {
+        log_message(GREEN "Tree is OK.\n" CANCEL);
+        return;
+    }
+
+    log_error("Tree_verify failed.\n");
+
+    for (int shift = 0; sizeof(char *) * shift < sizeof(verify_error_messages); ++shift)
+    {
+        if (err & (1 << shift)) log_error(verify_error_messages[shift]);
+    }
 }
 
 /*_____________________________________________________________________*/
@@ -247,8 +263,6 @@ void node_dtor(Tree_node *const node)
     log_free(node);
 }
 
-/*_____________________________________________________________________*/
-
 void Tree_dtor(Tree_node *const root)
 {
     if (root == nullptr) return;
@@ -270,7 +284,6 @@ static void dfs_dtor(Tree_node *const node)
 
 bool Tree_parsing_main(Tree_node *const root, const char *file)
 {
-    assert(root != nullptr);
     assert(file != nullptr);
 
     int         data_size = 0;
@@ -482,11 +495,13 @@ static bool put_op(Tree_node *const node, const char possible_op)
 
 void Tree_dump_graphviz(Tree_node *root)
 {
-    log_header("Tree_dump_graphviz\n");
+    log_header  (__PRETTY_FUNCTION__);
+    Tree_verify (root);
 
     if (root == nullptr)
     {
-        log_warning("Nullptr-root passed in Tree_dump_graphviz.\n");
+        log_warning   ("Nullptr-root passed in Tree_dump_graphviz.\n");
+        log_end_header();
         return;
     }
     
@@ -501,7 +516,8 @@ void Tree_dump_graphviz(Tree_node *root)
     FILE *stream_txt =  fopen(dump_txt, "w");
     if   (stream_txt == nullptr)
     {
-        log_error("Can't open dump file.\n");
+        log_error     ("Can't open dump file.\n");
+        log_end_header();
         return;
     }
 
@@ -516,11 +532,13 @@ void Tree_dump_graphviz(Tree_node *root)
     fprintf(stream_txt, "}\n");
 
     char cmd[graph_size_cmd] = "";
-    sprintf    (cmd, "dot %s -T png -o %s", dump_txt, dump_png);
-    system     (cmd);
-    log_message("<img src=%s>\n", dump_png);
+    sprintf       (cmd, "dot %s -T png -o %s", dump_txt, dump_png);
+    system        (cmd);
+    log_message   ("<img src=%s>\n", dump_png);
+    log_end_header();
 
     fclose(stream_txt);
+
 }
 
 static void Tree_dump_graphviz_dfs(Tree_node *node, int *const node_number, FILE *const stream)

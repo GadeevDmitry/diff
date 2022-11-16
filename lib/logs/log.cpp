@@ -62,7 +62,7 @@ void log_param_place   (const char   *file,
 
 void *log_calloc(size_t number, size_t size);
 void  log_free  (void *ptr);
-
+void log_end_header();
 /*______________________________ADDITIONAL_FUNCTION_DECLARATIONS_____________________________*/
 
 /**
@@ -207,4 +207,9 @@ void log_free(void *ptr)
 
     --DYNAMIC_MEMORY;
     free(ptr);
+}
+
+void log_end_header()
+{
+    log_message("<hr>\n");
 }
