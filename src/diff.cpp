@@ -44,6 +44,7 @@ static void print_Tree_node         (Tree_node *node, int *const node_number, FI
                                                                                                     GRAPHVIZ_COLOR     color, 
                                                                                                     const char    *node_type,
                                                                                                     const char        *value);
+static void Tree_dump_txt_dfs       (Tree_node *node, bool bracket);
 
 /*___________________________STATIC_CONST______________________________*/
 
@@ -56,6 +57,22 @@ static const Tree_node default_node =
     nullptr     , // prev
 
         0.0       // dbl
+};
+
+static const int op_priority[] =
+{
+    1   , // OP_ADD
+    1   , // OP_SUB
+    2   , // OP_MUL
+    2   , // OP_DIV
+};
+
+static const char *op_names[] =
+{
+    "+" , // OP_ADD
+    "-" , // OP_SUB
+    "*" , // OP_MUL
+    "/" , // OP_DIV
 };
 
 static const int VALUE_SIZE = 100;
@@ -141,7 +158,7 @@ static void print_error_messages(unsigned int err)
 
     log_error("Tree_verify failed.\n");
 
-    for (int shift = 0; sizeof(char *) * shift < sizeof(verify_error_messages); ++shift)
+    for (long unsigned shift = 0; sizeof(char *) * shift < sizeof(verify_error_messages); ++shift)
     {
         if (err & (1 << shift)) log_error(verify_error_messages[shift]);
     }
@@ -284,6 +301,8 @@ static void dfs_dtor(Tree_node *const node)
 
 bool Tree_parsing_main(Tree_node *const root, const char *file)
 {
+    log_header(__PRETTY_FUNCTION__);
+
     assert(file != nullptr);
 
     int         data_size = 0;
@@ -292,7 +311,8 @@ bool Tree_parsing_main(Tree_node *const root, const char *file)
     
     if (data == nullptr)
     {
-        log_error("Can't open the file\n");
+        log_error     ("Can't open the file\n");
+        log_end_header();
         return false;
     }
 
@@ -300,12 +320,15 @@ bool Tree_parsing_main(Tree_node *const root, const char *file)
                                     data_size,
                                    &data_pos  ))
     {
-        log_error("Syntax_error in log_file.\n");
+        log_error("Syntax_error in download file.\n");
         
-        log_free((char *) data);
+        log_free      ((char *) data);
+        log_end_header();
         return false;
     }
-    log_free((char *) data);
+    log_free      ((char *) data);
+    log_message   (GREEN "Parsing successful.\n" CANCEL);
+    log_end_header();
     return true;
 }
 
@@ -363,7 +386,7 @@ static bool push_next_node(Tree_node **node, Tree_node *const root)
         }
         else
         {
-            log_error("Redefinition of node.\n");
+            log_error("Pushing in the third time.\n");
             return false;
         }
     }
@@ -410,6 +433,11 @@ static bool put_dbl(Tree_node *const node,  const char *data     ,
         log_error("Can't put double-value in nullptr-node.\n");
         return false;
     }
+    if (node->type != NODE_UNDEF)
+    {
+        log_error("Redefinition of dbl-node.\n");
+        return false;
+    }
 
     double dbl =             0;
    *data_pos   = *data_pos - 1;
@@ -452,6 +480,11 @@ static bool put_var(Tree_node *const node)
         log_error("Can't put variable in nullptr-node.\n");
         return false;
     }
+    if (node->type != NODE_UNDEF)
+    {
+        log_error("Redefinition of var-node.\n");
+        return false;
+    }
 
     node_var_ctor(node, node->prev);
     return true; 
@@ -470,6 +503,12 @@ static bool put_op(Tree_node *const node, const char possible_op)
         log_error("Can't put possible operation in terminal node.\n");
         return false;
     }
+    if (node->type != NODE_UNDEF)
+    {
+        log_error("Redefinition of op-node.\n");
+        return false;
+    }
+
     switch(possible_op)
     {
         case '+': node_op_ctor(node, node->left, node->right, node->prev, OP_ADD);
@@ -575,7 +614,7 @@ static void Tree_node_describe(Tree_node *node, int *const node_number, FILE *co
         case NODE_VAR:      color =  DARK_BLUE;
                         fillcolor = LIGHT_BLUE;
                         node_type = "NODE_VAR";
-                        value[0]  =        'x';
+                        sprintf(value, "var: x");
                         break;
         
         case NODE_NUM:      color =  DARK_GREEN;
@@ -632,5 +671,50 @@ static void print_Tree_node(Tree_node *node, int *const node_number, FILE *const
 }
 
 /*_____________________________________________________________________*/
+
+void Tree_dump_txt(Tree_node *root)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (Tree_verify(root) == false)
+    {
+        log_message("Can't generate txt_dump, because tree is invalid.\n"
+                    "Get graphviz_dump.\n");
+        
+        Tree_dump_graphviz(root);
+        return;
+    }
+
+    Tree_dump_txt_dfs(root, false);
+    log_end_header   ();
+}
+
+static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
+{
+    assert(node != nullptr);
+
+    if (bracket) log_message("(");
+
+    if      (node->type == NODE_NUM) log_message("%lg", node->value.dbl);
+    else if (node->type == NODE_VAR) log_message("x");
+    else
+    {
+        if (node->left->type != NODE_OP || op_priority[node->left->value.op] >= op_priority[node->value.op])
+        {
+            Tree_dump_txt_dfs(node->left, false);
+        }
+        else { Tree_dump_txt_dfs(node->left, true); }
+
+        log_message(op_names[node->value.op]);
+
+        if (node->right->type != NODE_OP || op_priority[node->right->value.op] > op_priority[node->value.op])
+        {
+            Tree_dump_txt_dfs(node->right, false);
+        }
+        else { Tree_dump_txt_dfs(node->right, true); }
+    }
+
+    if (bracket) log_message(")");
+}
 
 /*_____________________________________________________________________*/
