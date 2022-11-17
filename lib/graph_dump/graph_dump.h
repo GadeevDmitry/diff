@@ -1,8 +1,8 @@
 #ifndef GRAPH_DUMP_H
 #define GRAPH_DUMP_H
 
-static const int   graph_size_file = 100;
-static const int   graph_size_cmd  = 300;
+static const int   GRAPHVIZ_SIZE_FILE = 100;
+static const int   GRAPHVIZ_SIZE_CMD  = 300;
 
 static const char *graphviz_color_names[]   =
 {

@@ -49,6 +49,9 @@ static void         print_Tree_node         (Tree_node *node, int *const node_nu
                                                                                                             const char    *node_type,
                                                                                                             const char        *value);
 static void         Tree_dump_txt_dfs       (Tree_node *node, bool bracket);
+static void         Tree_dump_tex_system    (char *const dump_tex, char *const dump_pdf, const int cur);
+static void         Tree_dump_tex_dfs       (Tree_node *node, bool bracket, FILE *const stream);
+static void         Tree_dump_tex_op_div    (Tree_node *node, FILE *const stream);
 
 /*___________________________STATIC_CONST______________________________*/
 
@@ -80,6 +83,10 @@ static const char *op_names[] =
 };
 
 static const int VALUE_SIZE = 100;
+static const int  FILE_SIZE = 100;
+static const int   CMD_SIZE = 300;
+static const int PDF_WIDTH  = 500;
+static const int PDF_HEIGHT = 500;
 
 enum VERIFY_ERROR
 {
@@ -108,6 +115,38 @@ static const char *verify_error_messages[] =
     " Variable-type node is not terminal.\n",
     "   Number-type node is not terminal.\n",
 };
+
+const char *tex_header =
+"\\documentclass[12pt,a5paper,fleqn]{article}\n"
+"\\usepackage[utf8]{inputenc}\n"
+"\\usepackage{amssymb, amsmath, multicol}\n"
+"\\usepackage[russian]{babel}\n"
+"\\usepackage{graphicx}\n"
+"\\usepackage[shortcuts,cyremdash]{extdash}\n"
+"\\usepackage{wrapfig}\n"
+"\\usepackage{floatflt}\n"
+"\\usepackage{lipsum}\n"
+"\\usepackage{concmath}\n"
+"\\usepackage{euler}\n"
+"\\usepackage{libertine}\n"
+"\n"
+"\\oddsidemargin=-15.4mm\n"
+"\\textwidth=127mm\n"
+"\\headheight=-32.4mm\n"
+"\\textheight=277mm\n"
+"\\tolerance=100\n"
+"\\parindent=0pt\n"
+"\\parskip=8pt\n"
+"\\pagestyle{empty}\n"
+"\n"
+"\\usepackage[normalem]{ulem}\n"
+"\\usepackage{mdframed}\n"
+"\\usepackage{amsthm}\n"
+"\n"
+"\\flushbottom\n"
+"\n"
+"\\begin{document}\n"
+;
 
 /*_____________________________________________________________________*/
 
@@ -648,8 +687,8 @@ void Tree_dump_graphviz(Tree_node *root)
     
     static int cur = 0;
 
-    char    dump_txt[graph_size_file] = "";
-    char    dump_png[graph_size_file] = "";
+    char    dump_txt[GRAPHVIZ_SIZE_FILE] = "";
+    char    dump_png[GRAPHVIZ_SIZE_FILE] = "";
 
     sprintf(dump_txt, "dump_txt/Tree%d.txt", cur);
     sprintf(dump_png, "dump_png/Tree%d.png", cur);
@@ -673,7 +712,7 @@ void Tree_dump_graphviz(Tree_node *root)
 
     fprintf(stream_txt, "}\n");
 
-    char cmd[graph_size_cmd] = "";
+    char cmd[GRAPHVIZ_SIZE_CMD] = "";
     sprintf       (cmd, "dot %s -T png -o %s", dump_txt, dump_png);
     system        (cmd);
     log_message   ("<img src=%s>\n", dump_png);
@@ -818,6 +857,124 @@ static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
     }
 
     if (bracket) log_message(")");
+}
+
+/*_____________________________________________________________________*/
+
+void Tree_dump_tex(Tree_node *root)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (Tree_verify(root) == false)
+    {
+        log_message("Can't generate tex_dump, because tree is invalid.\n"
+                    "Get graphviz_dump.\n");
+        Tree_dump_graphviz(root);
+        return;
+    }
+
+    static int cur = 0;
+
+    char    dump_tex[FILE_SIZE] = "";
+    char    dump_pdf[FILE_SIZE] = "";
+
+    sprintf(dump_tex, "dump_tex/Tree%d.tex", cur);
+    sprintf(dump_pdf, "dump_pdf/Tree%d.pdf", cur);
+
+    FILE *stream_txt =  fopen(dump_tex, "w");
+    if   (stream_txt == nullptr)
+    {
+        log_error     ("Can't open tex-dump file.\n");
+        log_end_header();
+        return;
+    }
+
+    setvbuf(stream_txt, nullptr, _IONBF, 0);
+    fprintf(stream_txt, tex_header);
+    fprintf(stream_txt, "$$\n");
+
+    Tree_dump_tex_dfs(root, false, stream_txt);
+
+    fprintf(stream_txt, "\n$$\n");
+    fprintf(stream_txt, "\\end{document}\n");
+    
+    Tree_dump_tex_system(dump_tex, dump_pdf, cur); ++cur;
+    log_message         ("<object><embed src=\"%s\" width=\"%d\" height=\"%d\"/></object>\n", dump_pdf, PDF_WIDTH, PDF_HEIGHT);
+    log_end_header      ();
+
+    fclose(stream_txt);
+}
+
+static void Tree_dump_tex_system(char *const dump_tex, char *const dump_pdf, const int cur)
+{
+    assert(dump_tex);
+    assert(dump_pdf);
+
+    char cmd[CMD_SIZE] = "";
+    sprintf       (cmd, "pdflatex %s", dump_tex);
+    system        (cmd);
+
+    sprintf       (dump_tex, "Tree%d", cur);
+    sprintf       (cmd, "rm %s.log", dump_tex);
+    system        (cmd);
+
+    sprintf       (cmd, "rm %s.aux", dump_tex);
+    system        (cmd);
+
+    sprintf       (cmd, "cp %s.pdf %s", dump_tex, dump_pdf);
+    system        (cmd);
+
+    sprintf       (cmd, "rm %s.pdf", dump_tex);
+    system        (cmd);
+}
+
+static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
+{
+    assert(node   != nullptr);
+    assert(stream != nullptr);
+
+    if (bracket) fprintf(stream, "(");
+
+    if      (node->type == NODE_NUM) fprintf(stream, "%lg", node->value.dbl);
+    else if (node->type == NODE_VAR) fprintf(stream, " x");
+    else
+    {
+        if (node->value.op == OP_DIV)
+        {
+            Tree_dump_tex_op_div(node, stream);
+            if (bracket) fprintf(stream, ")");
+            return;
+        }
+        else if (node->left->type != NODE_OP || op_priority[node->left->value.op] >= op_priority[node->value.op])
+        {
+            Tree_dump_tex_dfs(node->left, false, stream);
+        }
+        else { Tree_dump_tex_dfs(node->left, true, stream); }
+
+        fprintf(stream, op_names[node->value.op]);
+
+        if (node->right->type != NODE_OP || op_priority[node->right->value.op] > op_priority[node->value.op])
+        {
+            Tree_dump_tex_dfs(node->right, false, stream);
+        }
+        else { Tree_dump_tex_dfs(node->right, true, stream); }
+    }
+
+    if (bracket) fprintf(stream, ")");
+}
+
+static void Tree_dump_tex_op_div(Tree_node *node, FILE *const stream)
+{
+    assert(node           != nullptr);
+    assert(stream         != nullptr);
+    assert(node->type     == NODE_OP);
+    assert(node->value.op == OP_DIV );
+
+    fprintf          (stream, "\\frac{");
+    Tree_dump_tex_dfs(node->left , false, stream);
+    fprintf          (stream, "}{");
+    Tree_dump_tex_dfs(node->right, false, stream);
+    fprintf          (stream, "}");
 }
 
 /*_____________________________________________________________________*/

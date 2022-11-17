@@ -62,6 +62,7 @@ Tree_node  *diff_main           (Tree_node *root);
 
 void        Tree_dump_graphviz  (Tree_node *root);
 void        Tree_dump_txt       (Tree_node *root);
+void        Tree_dump_tex       (Tree_node *root);
 
 /*______________________________________________________________________________________*/
 
