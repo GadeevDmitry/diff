@@ -13,4 +13,8 @@
 #define undef_ctor(node)                                                \
    node_undef_ctor(node, (node)->prev);
 
+#define L(node) (node)->left
+#define R(node) (node)->right
+
+
 #endif //DSL_H

@@ -46,6 +46,10 @@ void        node_var_ctor       (Tree_node *const node, Tree_node *const  prev);
 void        node_undef_ctor     (Tree_node *const node, Tree_node *const  prev);
 
 Tree_node  *new_node_op         (TYPE_OP value,      Tree_node *const prev);
+Tree_node  *new_node_op         (Tree_node *left ,
+                                 Tree_node *right,
+                                 Tree_node *prev ,
+                                 TYPE_OP    value);
 Tree_node  *new_node_num        (const double value, Tree_node *const prev);
 Tree_node  *new_node_var        (                    Tree_node *const prev);
 Tree_node  *new_node_undef      (                    Tree_node *const prev);
