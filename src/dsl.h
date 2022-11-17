@@ -15,6 +15,7 @@
 
 #define L(node) (node)->left
 #define R(node) (node)->right
-
+#define P(node) (node)->prev
+#define U(node) new_node_undef(node)
 
 #endif //DSL_H
