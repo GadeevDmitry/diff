@@ -38,17 +38,17 @@ static bool         get_dbl                 (double *const dbl,     const char *
 static bool         put_var                 (Tree_node *const node);
 static bool         put_op                  (Tree_node *const node, const char possible_op);
 
-static Tree_node   *diff_execute            (Tree_node *node   , Tree_node *diff_node);
-static void         diff_execute_op_case    (Tree_node *node   , Tree_node *diff_node);
-static Tree_node   *Tree_copy               (Tree_node *cp_from, Tree_node *cp_to    );
+static Tree_node   *diff_execute            (Tree_node *node);
+static void         diff_prev_init          (Tree_node *diff_node, Tree_node *prev);
+static Tree_node   *Tree_copy               (Tree_node *cp_from);
 
-static void Tree_dump_graphviz_dfs          (Tree_node *node, int *const node_number, FILE *const stream);
-static void Tree_node_describe              (Tree_node *node, int *const node_number, FILE *const stream);
-static void print_Tree_node                 (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
+static void         Tree_dump_graphviz_dfs  (Tree_node *node, int *const node_number, FILE *const stream);
+static void         Tree_node_describe      (Tree_node *node, int *const node_number, FILE *const stream);
+static void         print_Tree_node         (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
                                                                                                             GRAPHVIZ_COLOR     color, 
                                                                                                             const char    *node_type,
                                                                                                             const char        *value);
-static void Tree_dump_txt_dfs               (Tree_node *node, bool bracket);
+static void         Tree_dump_txt_dfs       (Tree_node *node, bool bracket);
 
 /*___________________________STATIC_CONST______________________________*/
 
@@ -175,10 +175,6 @@ void node_op_ctor(Tree_node *const node,    Tree_node *const  left,
                                             Tree_node *const  prev,
                                             TYPE_OP          value)
 {
-    assert(node  != nullptr);
-    assert(left  != nullptr);
-    assert(right != nullptr);
-
     node->type     = NODE_OP;
 
     node->left     =    left;
@@ -256,10 +252,6 @@ Tree_node *new_node_op(Tree_node *left ,
                        Tree_node *prev ,
                        TYPE_OP    value)
 {
-    assert(left  != nullptr);
-    assert(right != nullptr);
-    assert(prev  != nullptr);
-
     Tree_node *new_node = (Tree_node *) log_calloc(1, sizeof(Tree_node));
     if        (new_node == nullptr)
     {
@@ -572,126 +564,72 @@ Tree_node *diff_main(Tree_node *root)
         return nullptr;
     }
 
-    Tree_node *diff_root = new_node_undef(nullptr);
-    if        (diff_root == nullptr)
-    {
-        log_error     ("log_calloc returns nullptr.\n");
-        log_end_header();
-        return nullptr;
-    }
+    Tree_node     *diff_root = diff_execute(root);
+    diff_prev_init(diff_root, nullptr);
 
-    diff_execute  (root, diff_root);
     log_end_header();
     return diff_root;
 }
 
-static Tree_node *diff_execute(Tree_node *node, Tree_node *diff_node)
+static Tree_node *diff_execute(Tree_node *node)
 {
-    assert(node      != nullptr);
-    assert(diff_node != nullptr);
+    assert(node != nullptr);
 
     switch(node->type)
     {
-        case NODE_NUM:  num_ctor(diff_node, 0);
-                        break;
+        case NODE_NUM: return new_node_num(0, nullptr);
         
-        case NODE_VAR:  num_ctor(diff_node, 1);
-                        break;
+        case NODE_VAR: return new_node_num(1, nullptr);
         
-        case NODE_OP:   diff_execute_op_case(node, diff_node);
-                        break;
+        case NODE_OP:  switch(node->value.op)
+                       {
+                           case OP_ADD: return Add(dL(node), dR(node));
+
+                           case OP_SUB: return Sub(dL(node), dR(node));
+
+                           case OP_MUL: return Add(Mul(dL(node), cR(node)), Mul(cL(node), dR(node)));
+
+                           case OP_DIV: return Div(Sub(Mul(dL(node), cR(node)), Mul(cL(node), dR(node))), Mul(cR(node), cR(node)));
+
+                           default    : Tree_dump_graphviz(node);
+                                        assert(false && "default case in TYPE_OP-switch");
+                       }
         
         case NODE_UNDEF:
-        default        :   assert(false && "default case in TYPE_NODE-switch");
+        default        : Tree_dump_graphviz(node);  
+                         assert(false && "default case in TYPE_NODE-switch");
     }
 
-    return diff_node;
+    return nullptr;
 }
 
-static void diff_execute_op_case(Tree_node *node, Tree_node *diff_node)
+static void diff_prev_init(Tree_node *diff_node, Tree_node *prev)
 {
-    assert(node       != nullptr);
-    assert(diff_node  != nullptr);
-    assert(node->type == NODE_OP);
+    assert(diff_node);
 
-    switch (node->value.op)
-    {
-        case OP_ADD:    node_op_ctor(diff_node, diff_execute(L(node), U(diff_node)),
-                                                diff_execute(R(node), U(diff_node)),
-                                                P(diff_node)                       ,
-                                                OP_ADD                             );
-                        break;
+    diff_node->prev = prev;
 
-        case OP_SUB:    node_op_ctor(diff_node, diff_execute(L(node), U(diff_node)),
-                                                diff_execute(R(node), U(diff_node)),
-                                                P(diff_node)                       ,
-                                                OP_SUB                             );
-                        break;
-
-        case OP_MUL:    node_op_ctor(diff_node, new_node_op(OP_MUL, diff_node),
-                                                new_node_op(OP_MUL, diff_node),
-                                                P(diff_node)                  ,
-                                                OP_ADD                        );
-
-                        node_op_ctor(L(diff_node), diff_execute(L(node), L(L(diff_node))),
-                                                   Tree_copy   (R(node), R(L(diff_node))),
-                                                   P(diff_node)                          ,
-                                                   OP_MUL                                );
-                        node_op_ctor(R(diff_node), Tree_copy   (L(node), L(R(diff_node))),
-                                                   diff_execute(R(node), R(R(diff_node))),
-                                                   diff_node                             ,
-                                                   OP_MUL                                );
-                        break;
-
-        case OP_DIV:    node_op_ctor(diff_node, new_node_op(OP_SUB, diff_node),
-                                                new_node_op(OP_MUL, diff_node),
-                                                P(diff_node)                  ,
-                                                OP_DIV                        );
-
-                        node_op_ctor(L(L(diff_node)), diff_execute(L(node), U(L(L(diff_node)))),
-                                                      Tree_copy   (R(node), U(L(L(diff_node)))),
-                                                      L(diff_node)                             ,
-                                                      OP_MUL                                   );
-                        node_op_ctor(R(L(diff_node)), Tree_copy   (L(node), U(R(L(diff_node)))),
-                                                      diff_execute(R(node), U(R(L(diff_node)))),
-                                                      L(diff_node)                             ,
-                                                      OP_MUL                                   );
-
-                        node_op_ctor(R(diff_node), Tree_copy(R(node), L(R(diff_node))),
-                                                   Tree_copy(R(node), R(R(diff_node))),
-                                                   diff_node                          ,
-                                                   OP_MUL                             );
-                        break;
-
-        default     :   assert(false && "default case in TYPE_OP-switch");
-    }
+    if (diff_node->left ) diff_prev_init(diff_node->left , diff_node);
+    if (diff_node->right) diff_prev_init(diff_node->right, diff_node);
 }
 
-static Tree_node *Tree_copy(Tree_node *cp_from, Tree_node *cp_to)
+static Tree_node *Tree_copy(Tree_node *cp_from)
 {
     assert(cp_from != nullptr);
-    assert(cp_to   != nullptr);
 
     switch (cp_from->type)
     {
-        case NODE_NUM: node_num_ctor(cp_to, P(cp_to), cp_from->value.dbl);
-                       break;
+        case NODE_NUM   :  return new_node_num(cp_from->value.dbl, nullptr);
 
-        case NODE_VAR: node_var_ctor(cp_to, P(cp_to));
-                       break;
+        case NODE_VAR   :  return new_node_var(nullptr);
 
-        case NODE_OP : node_op_ctor (cp_to, Tree_copy(L(cp_from), U(cp_to)),
-                                            Tree_copy(R(cp_from), U(cp_to)),
-                                            P(cp_to)                       ,
-                                            cp_from->value.op              );
-                       break;
+        case NODE_OP    :  return new_node_op(cL(cp_from), cR(cp_from), nullptr, cp_from->value.op);
 
-        case NODE_UNDEF:
-        default        :Tree_dump_graphviz(cp_from);
-                        assert(false && "Undefined node-type in cp_from.\n");
-                        break;
+        case NODE_UNDEF :
+        default         :  Tree_dump_graphviz(cp_from);
+                           assert(false && "Undefined node-type in cp_from.\n");
     }
-    return cp_to;
+    return nullptr;
 }
 
 /*_____________________________________________________________________*/

@@ -13,9 +13,14 @@
 #define undef_ctor(node)                                                \
    node_undef_ctor(node, (node)->prev);
 
-#define L(node) (node)->left
-#define R(node) (node)->right
-#define P(node) (node)->prev
-#define U(node) new_node_undef(node)
+#define dL(node) diff_execute((node)->left )
+#define dR(node) diff_execute((node)->right)
+#define cL(node) Tree_copy   ((node)->left )
+#define cR(node) Tree_copy   ((node)->right)
+
+#define Add(left, right) new_node_op(left, right, nullptr, OP_ADD)
+#define Sub(left, right) new_node_op(left, right, nullptr, OP_SUB)
+#define Mul(left, right) new_node_op(left, right, nullptr, OP_MUL)
+#define Div(left, right) new_node_op(left, right, nullptr, OP_DIV)
 
 #endif //DSL_H
