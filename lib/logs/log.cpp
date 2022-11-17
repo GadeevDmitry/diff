@@ -197,6 +197,9 @@ void *log_calloc(size_t number, size_t size)
 {
     if ((number * size) == 0) return nullptr;
 
+    void *ret = calloc(number, size);
+    if   (ret == nullptr) return nullptr;
+
     ++DYNAMIC_MEMORY;
     return calloc(number, size);
 }
