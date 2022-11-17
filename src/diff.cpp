@@ -532,6 +532,112 @@ static bool put_op(Tree_node *const node, const char possible_op)
 
 /*_____________________________________________________________________*/
 
+Tree_node *diff_main(Tree_node *root)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (Tree_verify(root) == false)
+    {
+        log_error     ("Can't differentiate the function, because tree is invalid.\n");
+        log_end_header();
+        return nullptr;
+    }
+
+    Tree_node *diff_root = new_node_undef(nullptr);
+    if        (diff_root == nullptr)
+    {
+        log_error("log_calloc returns nullptr.\n");
+        return nullptr;
+    }
+}
+
+static void diff_execute(Tree_node *node, Tree_node *diff_node)
+{
+    assert(node      != nullptr);
+    assert(diff_node != nullptr);
+
+    switch(node->type)
+    {
+        case NODE_NUM:  node_num_ctor(diff_node, diff_node->prev, 0);
+                        break;
+        
+        case NODE_VAR:  node_num_ctor(diff_node, diff_node->prev, 1);
+                        break;
+        
+        case NODE_OP:   diff_node->left  = new_node_undef(node);
+                        diff_node->right = new_node_undef(node);
+
+                        switch (node->value.op)
+                        {
+                            case OP_ADD:    node_op_ctor(diff_node, diff_node->left, diff_node->right, diff_node->prev, OP_ADD);
+
+                                            diff_execute(node->left , diff_node->left );
+                                            diff_execute(node->right, diff_node->right);
+                                            break;
+                            
+                            case OP_SUB:    node_op_ctor(diff_node, diff_node->left, diff_node->right, diff_node->prev, OP_SUB);
+
+                                            diff_execute(node->left , diff_node->left );
+                                            diff_execute(node->right, diff_node->right);
+                                            break;
+                            
+                            case OP_MUL:    node_op_ctor(diff_node, diff_node->left, diff_node->right, diff_node->prev, OP_ADD);
+                                            
+                                            diff_node->left ->left  = new_node_undef(diff_node->left );
+                                            diff_node->left ->right = new_node_undef(diff_node->left );
+                                            diff_node->right->right = new_node_undef(diff_node->right);
+                                            diff_node->right->right = new_node_undef(diff_node->right);
+
+                                            node_op_ctor(diff_node->left , diff_node->left ->left, diff_node->left ->right, diff_node, OP_MUL);
+                                            node_op_ctor(diff_node->right, diff_node->right->left, diff_node->right->right, diff_node, OP_MUL);
+
+                                            Tree_copy(node->right, diff_node->left ->right);
+                                            Tree_copy(node->left , diff_node->right->left );
+
+                                            diff_execute(node->left , diff_node->left ->left );
+                                            diff_execute(node->right, diff_node->right->right);
+                                            break;
+                            
+                            case OP_DIV:    
+                        }
+    }
+}
+
+static void Tree_copy(Tree_node *cp_from, Tree_node *cp_to)
+{
+    assert(cp_from != nullptr);
+    assert(cp_to   != nullptr);
+
+    switch (cp_from->type)
+    {
+        case NODE_NUM: node_num_ctor(cp_to, cp_to->prev, cp_from->value.dbl);
+                       break;
+
+        case NODE_VAR: node_var_ctor(cp_to, cp_to->prev);
+                       break;
+
+        case NODE_OP : node_op_ctor (cp_to, cp_to->left, cp_to->right, cp_to->prev, cp_from->value.op);
+                       break;
+
+        default      : Tree_dump_graphviz(cp_from);
+                       assert(false && "Undefined node-type in cp_from.\n");
+                       break;
+    }
+
+    if (cp_from->left)
+    {
+        cp_to->left = new_node_undef(cp_to);
+        Tree_copy(cp_from->left, cp_to->left);
+    }
+    if (cp_from->right)
+    {
+        cp_to->right = new_node_undef(cp_to);
+        Tree_copy(cp_from->right, cp_to->right);
+    }
+}
+
+/*_____________________________________________________________________*/
+
 void Tree_dump_graphviz(Tree_node *root)
 {
     log_header  (__PRETTY_FUNCTION__);
