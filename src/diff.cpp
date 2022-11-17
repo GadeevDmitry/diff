@@ -39,6 +39,7 @@ static bool         put_var                 (Tree_node *const node);
 static bool         put_op                  (Tree_node *const node, const char possible_op);
 
 static Tree_node   *diff_execute            (Tree_node *node   , Tree_node *diff_node);
+static void         diff_execute_op_case    (Tree_node *node   , Tree_node *diff_node);
 static Tree_node   *Tree_copy               (Tree_node *cp_from, Tree_node *cp_to    );
 
 static void Tree_dump_graphviz_dfs          (Tree_node *node, int *const node_number, FILE *const stream);
@@ -574,57 +575,7 @@ static Tree_node *diff_execute(Tree_node *node, Tree_node *diff_node)
         case NODE_VAR:  num_ctor(diff_node, 1);
                         break;
         
-        case NODE_OP:   switch (node->value.op)
-                        {
-                            case OP_ADD:    node_op_ctor(diff_node, diff_execute(node->left , new_node_undef(diff_node)),
-                                                                    diff_execute(node->right, new_node_undef(diff_node)),
-                                                                    diff_node->prev                                     ,
-                                                                    OP_ADD                                              );
-                                            break;
-                            
-                            case OP_SUB:    node_op_ctor(diff_node, diff_execute(node->left , new_node_undef(diff_node)),
-                                                                    diff_execute(node->right, new_node_undef(diff_node)),
-                                                                    diff_node->prev                                     ,
-                                                                    OP_SUB                                              );
-                                            break;
-                            
-                            case OP_MUL:    node_op_ctor(diff_node, new_node_op(OP_MUL, diff_node),
-                                                                    new_node_op(OP_MUL, diff_node),
-                                                                    diff_node->prev               ,
-                                                                    OP_ADD                        );
-                                            
-                                            node_op_ctor(diff_node->left , diff_execute(node->left , diff_node->left->left  ),
-                                                                           Tree_copy   (node->right, diff_node->left->right ),
-                                                                           diff_node                                         ,
-                                                                           OP_MUL                                            );
-                                            node_op_ctor(diff_node->right, Tree_copy   (node->left , diff_node->right->left ),
-                                                                           diff_execute(node->right, diff_node->right->right),
-                                                                           diff_node                                         ,
-                                                                           OP_MUL                                            );
-                                            break;
-                            
-                            case OP_DIV:    node_op_ctor(diff_node, new_node_op(OP_SUB, diff_node),
-                                                                    new_node_op(OP_MUL, diff_node),
-                                                                    diff_node->prev               ,
-                                                                    OP_DIV                        );
-
-                                            node_op_ctor(diff_node->left->left , diff_execute(node->left , new_node_undef(diff_node->left->left )),
-                                                                                 Tree_copy   (node->right, new_node_undef(diff_node->left->left )),
-                                                                                 diff_node->left                                                  ,
-                                                                                 OP_MUL                                                           );
-                                            node_op_ctor(diff_node->left->right, Tree_copy   (node->left , new_node_undef(diff_node->left->right)),
-                                                                                 diff_execute(node->right, new_node_undef(diff_node->left->right)),
-                                                                                 diff_node->left                                                  ,
-                                                                                 OP_MUL                                                           );
-
-                                            node_op_ctor(diff_node->right, Tree_copy(node->right, diff_node->right->left ),
-                                                                           Tree_copy(node->right, diff_node->right->right),
-                                                                           diff_node                                      ,
-                                                                           OP_MUL                                         );
-                                            break;
-
-                            default     :   assert(false && "default case in TYPE_OP-switch");
-                        }
+        case NODE_OP:   diff_execute_op_case(node, diff_node);
                         break;
         
         case NODE_UNDEF:
@@ -632,6 +583,65 @@ static Tree_node *diff_execute(Tree_node *node, Tree_node *diff_node)
     }
 
     return diff_node;
+}
+
+static void diff_execute_op_case(Tree_node *node, Tree_node *diff_node)
+{
+    assert(node       != nullptr);
+    assert(diff_node  != nullptr);
+    assert(node->type == NODE_OP);
+
+    switch (node->value.op)
+    {
+        case OP_ADD:    node_op_ctor(diff_node, diff_execute(node->left , new_node_undef(diff_node)),
+                                                diff_execute(node->right, new_node_undef(diff_node)),
+                                                diff_node->prev                                     ,
+                                                OP_ADD                                              );
+                        break;
+
+        case OP_SUB:    node_op_ctor(diff_node, diff_execute(node->left , new_node_undef(diff_node)),
+                                                diff_execute(node->right, new_node_undef(diff_node)),
+                                                diff_node->prev                                     ,
+                                                OP_SUB                                              );
+                        break;
+
+        case OP_MUL:    node_op_ctor(diff_node, new_node_op(OP_MUL, diff_node),
+                                                new_node_op(OP_MUL, diff_node),
+                                                diff_node->prev               ,
+                                                OP_ADD                        );
+
+                        node_op_ctor(diff_node->left , diff_execute(node->left , diff_node->left->left  ),
+                                                       Tree_copy   (node->right, diff_node->left->right ),
+                                                       diff_node                                         ,
+                                                       OP_MUL                                            );
+                        node_op_ctor(diff_node->right, Tree_copy   (node->left , diff_node->right->left ),
+                                                       diff_execute(node->right, diff_node->right->right),
+                                                       diff_node                                         ,
+                                                       OP_MUL                                            );
+                        break;
+
+        case OP_DIV:    node_op_ctor(diff_node, new_node_op(OP_SUB, diff_node),
+                                                new_node_op(OP_MUL, diff_node),
+                                                diff_node->prev               ,
+                                                OP_DIV                        );
+
+                        node_op_ctor(diff_node->left->left , diff_execute(node->left , new_node_undef(diff_node->left->left )),
+                                                             Tree_copy   (node->right, new_node_undef(diff_node->left->left )),
+                                                             diff_node->left                                                  ,
+                                                             OP_MUL                                                           );
+                        node_op_ctor(diff_node->left->right, Tree_copy   (node->left , new_node_undef(diff_node->left->right)),
+                                                             diff_execute(node->right, new_node_undef(diff_node->left->right)),
+                                                             diff_node->left                                                  ,
+                                                             OP_MUL                                                           );
+
+                        node_op_ctor(diff_node->right, Tree_copy(node->right, diff_node->right->left ),
+                                                       Tree_copy(node->right, diff_node->right->right),
+                                                       diff_node                                      ,
+                                                       OP_MUL                                         );
+                        break;
+
+        default     :   assert(false && "default case in TYPE_OP-switch");
+    }
 }
 
 static Tree_node *Tree_copy(Tree_node *cp_from, Tree_node *cp_to)
