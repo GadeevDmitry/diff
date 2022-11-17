@@ -16,38 +16,38 @@
 
 /*___________________________STATIC_FUNCTION___________________________*/
 
-static bool Tree_verify             (                           Tree_node *const root);
-static void Tree_verify_dfs         (unsigned int *const err,   Tree_node *const root,
-                                                                Tree_node *const node);
-static void print_error_messages    (unsigned int        err);
+static bool         Tree_verify             (                           Tree_node *const root);
+static void         Tree_verify_dfs         (unsigned int *const err,   Tree_node *const root,
+                                                                        Tree_node *const node);
+static void         print_error_messages    (unsigned int        err);
 
-static void dfs_dtor                (Tree_node *const node);
+static void         dfs_dtor                (Tree_node *const node);
 
-static bool Tree_parsing_execute    (Tree_node *const root, const char *data     ,
-                                                            const int   data_size,
-                                                            int *const  data_pos );
+static bool         Tree_parsing_execute    (Tree_node *const root, const char *data     ,
+                                                                    const int   data_size,
+                                                                    int *const  data_pos );
 
-static bool push_next_node          (Tree_node **node, Tree_node *const root);
-static bool push_prev_node          (Tree_node **node, Tree_node *const root);
+static bool         push_next_node          (Tree_node **node, Tree_node *const root);
+static bool         push_prev_node          (Tree_node **node, Tree_node *const root);
 
-static bool put_dbl                 (Tree_node *const node, const char *data     ,
-                                                            int *const  data_pos );
-static bool get_dbl                 (double *const dbl,     const char *data     ,
-                                                            int *const  data_pos );
+static bool         put_dbl                 (Tree_node *const node, const char *data    ,
+                                                                    int *const  data_pos);
+static bool         get_dbl                 (double *const dbl,     const char *data    ,
+                                                                    int *const  data_pos);
 
-static bool put_var                 (Tree_node *const node);
-static bool put_op                  (Tree_node *const node, const char possible_op);
+static bool         put_var                 (Tree_node *const node);
+static bool         put_op                  (Tree_node *const node, const char possible_op);
 
-static void diff_execute            (Tree_node *node   , Tree_node *diff_node);
-static void Tree_copy               (Tree_node *cp_from, Tree_node *cp_to    );
+static Tree_node   *diff_execute            (Tree_node *node   , Tree_node *diff_node);
+static Tree_node   *Tree_copy               (Tree_node *cp_from, Tree_node *cp_to    );
 
-static void Tree_dump_graphviz_dfs  (Tree_node *node, int *const node_number, FILE *const stream);
-static void Tree_node_describe      (Tree_node *node, int *const node_number, FILE *const stream);
-static void print_Tree_node         (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
-                                                                                                    GRAPHVIZ_COLOR     color, 
-                                                                                                    const char    *node_type,
-                                                                                                    const char        *value);
-static void Tree_dump_txt_dfs       (Tree_node *node, bool bracket);
+static void Tree_dump_graphviz_dfs          (Tree_node *node, int *const node_number, FILE *const stream);
+static void Tree_node_describe              (Tree_node *node, int *const node_number, FILE *const stream);
+static void print_Tree_node                 (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
+                                                                                                            GRAPHVIZ_COLOR     color, 
+                                                                                                            const char    *node_type,
+                                                                                                            const char        *value);
+static void Tree_dump_txt_dfs               (Tree_node *node, bool bracket);
 
 /*___________________________STATIC_CONST______________________________*/
 
@@ -561,7 +561,7 @@ Tree_node *diff_main(Tree_node *root)
     return diff_root;
 }
 
-static void diff_execute(Tree_node *node, Tree_node *diff_node)
+static Tree_node *diff_execute(Tree_node *node, Tree_node *diff_node)
 {
     assert(node      != nullptr);
     assert(diff_node != nullptr);
@@ -576,22 +576,16 @@ static void diff_execute(Tree_node *node, Tree_node *diff_node)
         
         case NODE_OP:   switch (node->value.op)
                         {
-                            case OP_ADD:    node_op_ctor(diff_node, new_node_undef(diff_node),
-                                                                    new_node_undef(diff_node),
-                                                                    diff_node->prev          ,
-                                                                    OP_ADD                   );
-
-                                            diff_execute(node->left , diff_node->left );
-                                            diff_execute(node->right, diff_node->right);
+                            case OP_ADD:    node_op_ctor(diff_node, diff_execute(node->left , new_node_undef(diff_node)),
+                                                                    diff_execute(node->right, new_node_undef(diff_node)),
+                                                                    diff_node->prev                                     ,
+                                                                    OP_ADD                                              );
                                             break;
                             
-                            case OP_SUB:    node_op_ctor(diff_node, new_node_undef(diff_node),
-                                                                    new_node_undef(diff_node),
-                                                                    diff_node->prev          ,
-                                                                    OP_SUB                   );
-
-                                            diff_execute(node->left , diff_node->left );
-                                            diff_execute(node->right, diff_node->right);
+                            case OP_SUB:    node_op_ctor(diff_node, diff_execute(node->left , new_node_undef(diff_node)),
+                                                                    diff_execute(node->right, new_node_undef(diff_node)),
+                                                                    diff_node->prev                                     ,
+                                                                    OP_SUB                                              );
                                             break;
                             
                             case OP_MUL:    node_op_ctor(diff_node, new_node_op(OP_MUL, diff_node),
@@ -599,11 +593,14 @@ static void diff_execute(Tree_node *node, Tree_node *diff_node)
                                                                     diff_node->prev               ,
                                                                     OP_ADD                        );
                                             
-                                            Tree_copy(node->left , diff_node->right->left );
-                                            Tree_copy(node->right, diff_node->left ->right);
-
-                                            diff_execute(node->left , diff_node->left ->left );
-                                            diff_execute(node->right, diff_node->right->right);
+                                            node_op_ctor(diff_node->left , diff_execute(node->left , diff_node->left->left  ),
+                                                                           Tree_copy   (node->right, diff_node->left->right ),
+                                                                           diff_node                                         ,
+                                                                           OP_MUL                                            );
+                                            node_op_ctor(diff_node->right, Tree_copy   (node->left , diff_node->right->left ),
+                                                                           diff_execute(node->right, diff_node->right->right),
+                                                                           diff_node                                         ,
+                                                                           OP_MUL                                            );
                                             break;
                             
                             case OP_DIV:    node_op_ctor(diff_node, new_node_op(OP_SUB, diff_node),
@@ -611,22 +608,19 @@ static void diff_execute(Tree_node *node, Tree_node *diff_node)
                                                                     diff_node->prev               ,
                                                                     OP_DIV                        );
 
-                                            node_op_ctor(diff_node->left->left , new_node_undef(diff_node->left->left) ,
-                                                                                 new_node_undef(diff_node->left->left) ,
-                                                                                 diff_node->left                       ,
-                                                                                 OP_MUL                                );
-                                            node_op_ctor(diff_node->left->right, new_node_undef(diff_node->left->right),
-                                                                                 new_node_undef(diff_node->left->right),
-                                                                                 diff_node->left                       ,
-                                                                                 OP_MUL                                );
+                                            node_op_ctor(diff_node->left->left , diff_execute(node->left , new_node_undef(diff_node->left->left )),
+                                                                                 Tree_copy   (node->right, new_node_undef(diff_node->left->left )),
+                                                                                 diff_node->left                                                  ,
+                                                                                 OP_MUL                                                           );
+                                            node_op_ctor(diff_node->left->right, Tree_copy   (node->left , new_node_undef(diff_node->left->right)),
+                                                                                 diff_execute(node->right, new_node_undef(diff_node->left->right)),
+                                                                                 diff_node->left                                                  ,
+                                                                                 OP_MUL                                                           );
 
-                                            Tree_copy(node->right, diff_node->right->left        );
-                                            Tree_copy(node->right, diff_node->right->right       );
-                                            Tree_copy(node->right, diff_node->left ->left ->right);
-                                            Tree_copy(node->left , diff_node->left ->right->left );
-
-                                            diff_execute(node->left , diff_node->left->left ->left );
-                                            diff_execute(node->right, diff_node->left->right->right);
+                                            node_op_ctor(diff_node->right, Tree_copy(node->right, diff_node->right->left ),
+                                                                           Tree_copy(node->right, diff_node->right->right),
+                                                                           diff_node                                      ,
+                                                                           OP_MUL                                         );
                                             break;
 
                             default     :   assert(false && "default case in TYPE_OP-switch");
@@ -636,9 +630,11 @@ static void diff_execute(Tree_node *node, Tree_node *diff_node)
         case NODE_UNDEF:
         default        :   assert(false && "default case in TYPE_NODE-switch");
     }
+
+    return diff_node;
 }
 
-static void Tree_copy(Tree_node *cp_from, Tree_node *cp_to)
+static Tree_node *Tree_copy(Tree_node *cp_from, Tree_node *cp_to)
 {
     assert(cp_from != nullptr);
     assert(cp_to   != nullptr);
@@ -651,13 +647,10 @@ static void Tree_copy(Tree_node *cp_from, Tree_node *cp_to)
         case NODE_VAR: node_var_ctor(cp_to, cp_to->prev);
                        break;
 
-        case NODE_OP : node_op_ctor (cp_to, new_node_undef(cp_to),
-                                            new_node_undef(cp_to),
+        case NODE_OP : node_op_ctor (cp_to, Tree_copy(cp_from->left, new_node_undef(cp_to)),
+                                            Tree_copy(cp_from->left, new_node_undef(cp_to)),
                                             cp_to  ->prev        ,
                                             cp_from->value.op    );
-
-                       Tree_copy(cp_from->left , cp_to->left );
-                       Tree_copy(cp_from->right, cp_to->right);
                        break;
 
         case NODE_UNDEF:
@@ -665,6 +658,7 @@ static void Tree_copy(Tree_node *cp_from, Tree_node *cp_to)
                         assert(false && "Undefined node-type in cp_from.\n");
                         break;
     }
+    return cp_to;
 }
 
 /*_____________________________________________________________________*/
