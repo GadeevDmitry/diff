@@ -36,7 +36,9 @@ static bool         get_dbl                 (double *const dbl,     const char *
                                                                     int *const  data_pos);
 
 static bool         put_var                 (Tree_node *const node);
-static bool         put_op                  (Tree_node *const node, const char possible_op);
+static bool         put_op                  (Tree_node *const node, const char *data     ,
+                                                                    const int   data_size,
+                                                                    int *const  data_pos );
 
 static Tree_node   *diff_execute            (Tree_node *node);
 static void         diff_prev_init          (Tree_node *diff_node, Tree_node *prev);
@@ -49,8 +51,10 @@ static void         print_Tree_node         (Tree_node *node, int *const node_nu
                                                                                                             const char    *node_type,
                                                                                                             const char        *value);
 static void         Tree_dump_txt_dfs       (Tree_node *node, bool bracket);
+static void         dump_txt_sin_cos        (Tree_node *node, bool bracket);
 static void         Tree_dump_tex_system    (char *const dump_tex, char *const dump_pdf, const int cur);
 static void         Tree_dump_tex_dfs       (Tree_node *node, bool bracket, FILE *const stream);
+static void         Tree_dump_tex_op_sin_cos(Tree_node *node, FILE *const stream);
 static void         Tree_dump_tex_op_div    (Tree_node *node, FILE *const stream);
 
 /*___________________________STATIC_CONST______________________________*/
@@ -72,14 +76,18 @@ static const int op_priority[] =
     1   , // OP_SUB
     2   , // OP_MUL
     2   , // OP_DIV
+    3   , // OP_SIN
+    3   , // OP_COS
 };
 
 static const char *op_names[] =
 {
-    "+" , // OP_ADD
-    "-" , // OP_SUB
-    "*" , // OP_MUL
-    "/" , // OP_DIV
+    "+"     , // OP_ADD
+    "-"     , // OP_SUB
+    "*"     , // OP_MUL
+    "/"     , // OP_DIV
+    "sin"   , // OP_SIN
+    "cos"   , // OP_COS
 };
 
 static const int VALUE_SIZE = 100;
@@ -176,16 +184,16 @@ static void Tree_verify_dfs(unsigned int *const err,    Tree_node *const root,
     if (node->right == nullptr &&
         node->left  == nullptr   ) is_terminal_node = true;
 
-    if (node->prev  == nullptr && node != root) (*err) = (*err) | (1 << NULLPTR_PREV   );
-    if (node->left  == nullptr && node->right ) (*err) = (*err) | (1 << NULLPTR_LEFT   );
-    if (node->right == nullptr && node->left  ) (*err) = (*err) | (1 << NULLPTR_RIGHT  );
-    
+    if (node->prev  == nullptr && node != root) (*err) = (*err) | (1 << NULLPTR_PREV );
+    if (node->left  == nullptr && node->right ) (*err) = (*err) | (1 << NULLPTR_LEFT );
+    if (node->right == nullptr && node->left  ) (*err) = (*err) | (1 << NULLPTR_RIGHT);
+
     if (node->type  == NODE_UNDEF)
     {
         (*err) = (*err) | (1 << UNDEF_TYPE_NODE);
         return;
     }
-    
+
     if      (node->type == NODE_OP  &&  is_terminal_node) (*err) = (*err) | (1 << TERMINAL_OP     );
     else if (node->type == NODE_NUM && !is_terminal_node) (*err) = (*err) | (1 << NON_TERMINAL_NUM);
     else if (node->type == NODE_VAR && !is_terminal_node) (*err) = (*err) | (1 << NON_TERMINAL_VAR);
@@ -408,12 +416,14 @@ static bool Tree_parsing_execute(Tree_node *const root, const char *data     ,
         char cur_char  = data[*data_pos];
         *data_pos      =  1 + *data_pos ;
 
-        if      (cur_char == '('   ) { if (!push_next_node(&cur_node, root     )) return false; }
-        else if (cur_char == ')'   ) { if (!push_prev_node(&cur_node, root     )) return false; }
-        else if (isdigit(cur_char) ) { if (!put_dbl       ( cur_node, data     ,
-                                                                      data_pos )) return false; }
-        else if (cur_char == 'x'   ) { if (!put_var       ( cur_node           )) return false; }
-        else                         { if (!put_op        ( cur_node, cur_char )) return false; }
+        if      (cur_char == '('   ) { if (!push_next_node(&cur_node, root      )) return false; }
+        else if (cur_char == ')'   ) { if (!push_prev_node(&cur_node, root      )) return false; }
+        else if (isdigit(cur_char) ) { if (!put_dbl       ( cur_node, data      ,
+                                                                      data_pos  )) return false; }
+        else if (cur_char == 'x'   ) { if (!put_var       ( cur_node            )) return false; }
+        else                         { if (!put_op        ( cur_node, data,
+                                                                      data_size,
+                                                                      data_pos  )) return false; }
 
         skip_spaces(data, data_size, data_pos);
     }
@@ -483,8 +493,8 @@ static bool push_prev_node(Tree_node **node, Tree_node *const root)
    return true;
 }
 
-static bool put_dbl(Tree_node *const node,  const char *data     ,
-                                            int *const  data_pos )
+static bool put_dbl(Tree_node *const node,  const char *data    ,
+                                            int *const  data_pos)
 {
     assert(data     != nullptr);
     assert(data_pos != nullptr);
@@ -550,7 +560,9 @@ static bool put_var(Tree_node *const node)
     return true; 
 }
 
-static bool put_op(Tree_node *const node, const char possible_op)
+static bool put_op(Tree_node *const node, const char *data     ,
+                                          const int   data_size,
+                                          int *const  data_pos )
 {
     if (node == nullptr)
     {
@@ -569,25 +581,22 @@ static bool put_op(Tree_node *const node, const char possible_op)
         return false;
     }
 
-    switch(possible_op)
+    *data_pos = *data_pos - 1;
+
+    char           possible_op [VALUE_SIZE] = {};
+    get_word_split(possible_op, VALUE_SIZE, data, data_size, data_pos, "0123456789()x");
+
+    for (size_t op_cnt = 0; sizeof(char *) * op_cnt != sizeof(op_names); ++op_cnt)
     {
-        case '+': op_ctor(node, OP_ADD);
-                  break;
-
-        case '-': op_ctor(node, OP_SUB);
-                  break;
-
-        case '*': op_ctor(node, OP_MUL);
-                  break;
-        
-        case '/': op_ctor(node, OP_DIV);
-                  break;
-
-        default: log_error("Undefined operation.\n");
-                 return false;
+        if (!strcasecmp(possible_op, op_names[op_cnt]))
+        {
+            op_ctor(node, (TYPE_OP)op_cnt);
+            return true;
+        }
     }
 
-    return true;
+    log_error("Undefined operation.\n");
+    return false;
 }
 
 /*_____________________________________________________________________*/
@@ -629,6 +638,10 @@ static Tree_node *diff_execute(Tree_node *node)
                            case OP_MUL: return Add(Mul(dL(node), cR(node)), Mul(cL(node), dR(node)));
 
                            case OP_DIV: return Div(Sub(Mul(dL(node), cR(node)), Mul(cL(node), dR(node))), Mul(cR(node), cR(node)));
+                           
+                           case OP_SIN: return Mul(Cos(cL(node), cR(node)), dR(node));
+
+                           case OP_COS: return Mul(Sub(cL(node), Sin(cL(node), cR(node))), dR(node));
 
                            default    : Tree_dump_graphviz(node);
                                         assert(false && "default case in TYPE_OP-switch");
@@ -768,7 +781,7 @@ static void Tree_node_describe(Tree_node *node, int *const node_number, FILE *co
         case NODE_OP:       color =  DARK_ORANGE;
                         fillcolor = LIGHT_ORANGE;
                         node_type =    "NODE_OP";
-                        sprintf(value, "op: %d", node->value.op);
+                        sprintf(value, "op: %s", op_names[node->value.op]);
                         break;
 
         case NODE_UNDEF:    color =    DARK_RED ;
@@ -837,8 +850,10 @@ static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
 
     if (bracket) log_message("(");
 
-    if      (node->type == NODE_NUM) log_message("%lg", node->value.dbl);
-    else if (node->type == NODE_VAR) log_message("x");
+    if      (node->type == NODE_NUM     ) log_message("%lg", node->value.dbl);
+    else if (node->type == NODE_VAR     ) log_message("x");
+    else if (node->value.op == OP_SIN ||
+             node->value.op == OP_COS   ) dump_txt_sin_cos(node, bracket);
     else
     {
         if (node->left->type != NODE_OP || op_priority[node->left->value.op] >= op_priority[node->value.op])
@@ -855,6 +870,19 @@ static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
         }
         else { Tree_dump_txt_dfs(node->right, true); }
     }
+
+    if (bracket) log_message(")");
+}
+
+static void dump_txt_sin_cos(Tree_node *node, bool bracket)
+{
+    assert(node->value.op == OP_SIN ||
+           node->value.op == OP_COS   );
+
+    if (bracket) log_message("(");
+
+    log_message(op_names[node->value.op]);
+    Tree_dump_txt_dfs(node->right, true);
 
     if (bracket) log_message(")");
 }
@@ -935,17 +963,14 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
 
     if (bracket) fprintf(stream, "(");
 
-    if      (node->type == NODE_NUM) fprintf(stream, "%lg", node->value.dbl);
-    else if (node->type == NODE_VAR) fprintf(stream, " x");
+    if      (node->type     == NODE_NUM  ) fprintf(stream, "%lg", node->value.dbl);
+    else if (node->type     == NODE_VAR  ) fprintf(stream, " x");
+    else if (node->value.op ==   OP_DIV  ) Tree_dump_tex_op_div(node, stream);
+    else if (node->value.op ==   OP_SIN ||
+             node->value.op ==   OP_COS  ) Tree_dump_tex_op_sin_cos(node, stream);
     else
     {
-        if (node->value.op == OP_DIV)
-        {
-            Tree_dump_tex_op_div(node, stream);
-            if (bracket) fprintf(stream, ")");
-            return;
-        }
-        else if (node->left->type != NODE_OP || op_priority[node->left->value.op] >= op_priority[node->value.op])
+        if (node->left->type != NODE_OP || op_priority[node->left->value.op] >= op_priority[node->value.op])
         {
             Tree_dump_tex_dfs(node->left, false, stream);
         }
@@ -961,6 +986,18 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
     }
 
     if (bracket) fprintf(stream, ")");
+}
+
+static void Tree_dump_tex_op_sin_cos(Tree_node *node, FILE *const stream)
+{
+    assert(node           != nullptr);
+    assert(stream         != nullptr);
+    assert(node->type     == NODE_OP);
+    assert(node->value.op == OP_SIN ||
+           node->value.op == OP_COS );
+
+    fprintf          (stream, " %s", op_names[node->value.op]);
+    Tree_dump_tex_dfs(node->right, true, stream);
 }
 
 static void Tree_dump_tex_op_div(Tree_node *node, FILE *const stream)
