@@ -7,6 +7,12 @@
 #include "algorithm.h"
 #include "../logs/log.h"
 
+/*______________________STATIC_FUNCTION_______________________*/
+
+static bool is_ban_char(const char check_to, const char *ban);
+
+/*____________________________________________________________*/
+
 void my_swap(void *a, void *b, const int elem_size)
 {
     assert(a);
@@ -171,8 +177,9 @@ void get_line(char *push_in, const int max_size, const char *buff, const int buf
     assert(buff   );
     assert(pos    );
 
-    int  limit = (buff_size < max_size) ? buff_size : max_size - 1;
+    skip_spaces(buff, buff_size, pos);
 
+    int  limit = (buff_size < max_size) ? buff_size : max_size - 1;
     int  cnt = 0;
     for (cnt = 0; cnt < limit; ++cnt)
     {
@@ -192,8 +199,9 @@ void get_word(char *push_in, const int max_size, const char *buff, const int buf
     assert(buff   );
     assert(pos    );
 
-    int limit = (buff_size < max_size) ? buff_size : max_size - 1;
+    skip_spaces(buff, buff_size, pos);
 
+    int limit = (buff_size < max_size) ? buff_size : max_size - 1;
     int  cnt = 0;
     for (cnt = 0; cnt < limit; ++cnt)
     {
@@ -203,6 +211,46 @@ void get_word(char *push_in, const int max_size, const char *buff, const int buf
         ++*pos;
     }
     push_in[cnt] = '\0';
+}
+
+void get_word_split(char *push_in, const int max_size,  const char *buff     ,
+                                                        const int   buff_size,
+                                                        int *const  pos      , const char *split)
+{
+    assert(push_in);
+    assert(buff   );
+    assert(pos    );
+
+    if (split == nullptr)
+    {
+        get_word(push_in, max_size, buff, buff_size, pos);
+        return;
+    }
+
+    skip_spaces(buff, buff_size, pos);
+
+    int limit = (buff_size < max_size) ? buff_size : max_size - 1;
+    int  cnt = 0;
+    for (cnt = 0; cnt < limit; ++cnt)
+    {
+        if (is_ban_char(buff[*pos], split) || isspace(buff[*pos])) break;
+
+        push_in[cnt] = buff[*pos];
+        ++*pos;
+    }
+    push_in[cnt] = '\0';
+}
+
+static bool is_ban_char(const char check_to, const char *ban)
+{
+    if (ban == nullptr) return false;
+
+    while (*ban != '\0')
+    {
+        if (*ban == check_to) return true;
+        ++   ban;
+    }
+    return false;
 }
 
 void skip_spaces(const char *buff, const int buff_size, int *const pos)

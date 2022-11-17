@@ -22,6 +22,9 @@ void       clear_input_buff    (const char *buff, const int buff_size, int *cons
 
 void    get_line               (char *push_in, const int max_size, const char *buff, const int buff_size, int *const pos);
 void    get_word               (char *push_in, const int max_size, const char *buff, const int buff_size, int *const pos);
+void    get_word_split         (char *push_in, const int max_size, const char *buff     ,
+                                                                   const int   buff_size,
+                                                                   int *const  pos      , const char *split);
 void    skip_spaces            (                                   const char *buff, const int buff_size, int *const pos);
 
 /*_______________________________________________________________________________________________________*/
