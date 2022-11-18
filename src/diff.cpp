@@ -40,7 +40,9 @@ static bool         put_op                  (Tree_node *const node, const char *
                                                                     const int   data_size,
                                                                     int *const  data_pos );
 
-static Tree_node   *diff_execute            (Tree_node *node);
+static double       Tree_counter            (const double left, const double right, TYPE_OP op);
+
+static Tree_node   *diff_execute            (Tree_node *const node);
 static void         diff_prev_init          (Tree_node *diff_node, Tree_node *prev);
 static Tree_node   *Tree_copy               (Tree_node *cp_from);
 
@@ -615,7 +617,67 @@ static bool put_op(Tree_node *const node, const char *data     ,
 
 /*_____________________________________________________________________*/
 
-Tree_node *diff_main(Tree_node *root)
+void Tree_optimize_main(Tree_node *const root)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (Tree_verify(root) == false)
+    {
+        log_error     ("Can't optimize the tree, because it is invalid.\n");
+        log_end_header();
+        return nullptr;
+    }
+
+
+}
+
+static bool Tree_optimize_execute(Tree_node *node)
+{
+    switch (node->type)
+    {
+        case NODE_NUM: return true ;
+        case NODE_VAR: return false;
+
+        case NODE_OP : if (Tree_optimize_execute(node->left) && Tree_optimize_execute(node->right))
+                       {
+                           double val_left  = node->left ->value.dbl;
+                           double val_right = node->right->value.dbl;
+
+                           node_dtor(node->left );
+                           node_dtor(node->right);
+
+                           num_ctor(node, Tree_counter(left, right, node->value.op));
+                           return true;
+                       }
+                       else return false;
+
+        case default : log_error("default case in Tree_optimize_execute() in TYPE-NODE-switch: node_type = %d.\n", node->type);
+                       assert(false, "default case in Tree_optimize_execute() in TYPE-NODE-switch");
+                       break;
+    }
+}
+
+static double Tree_counter(const double left, const double right, TYPE_OP op)
+{
+    switch (op)
+    {
+        case OP_ADD: return left + right;
+        case OP_SUB: return left - right;
+        case OP_MUL: return left * right;
+        case OP_DIV: return left / right;
+        case OP_SIN: return cos   (right);
+        case OP_COS: return sin   (left );
+
+        default    : log_error    ("default case in Tree_counter() op-switch: op = %d.\n", op);
+                     assert(false, "default case in Tree_counter() op-switch");
+                     break;
+    }
+    return 0;
+}
+
+/*_____________________________________________________________________*/
+
+Tree_node *diff_main(Tree_node *const root)
 {
     log_header(__PRETTY_FUNCTION__);
 
@@ -633,7 +695,7 @@ Tree_node *diff_main(Tree_node *root)
     return diff_root;
 }
 
-static Tree_node *diff_execute(Tree_node *node)
+static Tree_node *diff_execute(Tree_node *const node)
 {
     assert(node != nullptr);
 
@@ -658,19 +720,23 @@ static Tree_node *diff_execute(Tree_node *node)
                            case OP_COS: return Mul(Sub(cL(node), Sin(cL(node), cR(node))), dR(node));
                            
                            case OP_POW: 
-                           default    : Tree_dump_graphviz(node);
-                                        assert(false && "default case in TYPE_OP-switch");
+                           default    : log_error      ("default case in diff_execute() in TYPE-OP-switch: op_type = %d.\n", node->value.op);
+                                        Tree_dump_graphviz(node);
+                                        assert(false && "default case in diff_execute() in TYPE_OP-switch");
+                                        break;
                        }
         
         case NODE_UNDEF:
-        default        : Tree_dump_graphviz(node);  
+        default        : log_error      ("default case in diff_execute() in TYPE-NODE-switch: node_type = %d.\n", node->type);
+                         Tree_dump_graphviz(node);
                          assert(false && "default case in TYPE_NODE-switch");
+                         break;
     }
 
     return nullptr;
 }
 
-static Tree_node *diff_op_pow(Tree_node *node)
+static Tree_node *diff_op_pow(Tree_node *const node)
 {
     assert(node           != nullptr);
     assert(node->type     == NODE_OP);
@@ -693,15 +759,17 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 
     switch (cp_from->type)
     {
-        case NODE_NUM   :  return new_node_num(cp_from->value.dbl, nullptr);
+        case NODE_NUM   : return new_node_num(cp_from->value.dbl, nullptr);
 
-        case NODE_VAR   :  return new_node_var(nullptr);
+        case NODE_VAR   : return new_node_var(nullptr);
 
-        case NODE_OP    :  return new_node_op(cL(cp_from), cR(cp_from), nullptr, cp_from->value.op);
+        case NODE_OP    : return new_node_op(cL(cp_from), cR(cp_from), nullptr, cp_from->value.op);
 
         case NODE_UNDEF :
-        default         :  Tree_dump_graphviz(cp_from);
-                           assert(false && "Undefined node-type in cp_from.\n");
+        default         : log_error      ("default case in Tree_copy() in TYPE-NODE-switch: node_type = %d.\n", cp_from->type);
+                          Tree_dump_graphviz(cp_from);
+                          assert(false && "default case in Tree_copy() in TYPE-NODE-switch");
+                          break;
     }
     return nullptr;
 }
