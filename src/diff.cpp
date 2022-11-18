@@ -21,6 +21,19 @@ static void         Tree_verify_dfs         (unsigned int *const err,   Tree_nod
                                                                         Tree_node *const node);
 static void         print_error_messages    (unsigned int        err);
 
+static Tree_node   *operator +              (Tree_node &left ,
+                                             Tree_node &right);
+static Tree_node   *operator -              (Tree_node &left ,
+                                             Tree_node &right);
+static Tree_node   *operator *              (Tree_node &left ,
+                                             Tree_node &right);
+static Tree_node   *operator /              (Tree_node &left ,
+                                             Tree_node &right);
+static Tree_node   *sin                     (Tree_node &left ,
+                                             Tree_node &right);
+static Tree_node   *cos                     (Tree_node &left ,
+                                             Tree_node &right);
+
 static void         dfs_dtor                (Tree_node *const node);
 
 static bool         Tree_parsing_execute    (Tree_node *const root, const char *data     ,
@@ -343,6 +356,44 @@ Tree_node *new_node_undef(Tree_node *const prev)
 
 /*_____________________________________________________________________*/
 
+static Tree_node *operator +(Tree_node &left ,
+                             Tree_node &right)
+{
+    return new_node_op(&left, &right, nullptr, OP_ADD);
+}
+
+static Tree_node *operator -(Tree_node &left ,
+                             Tree_node &right)
+{
+    return new_node_op(&left, &right, nullptr, OP_SUB);
+}
+
+static Tree_node *operator *(Tree_node &left ,
+                             Tree_node &right)
+{
+    return new_node_op(&left, &right, nullptr, OP_MUL);
+}
+
+static Tree_node *operator /(Tree_node &left ,
+                             Tree_node &right)
+{
+    return new_node_op(&left, &right, nullptr, OP_DIV);
+}
+
+static Tree_node *sin       (Tree_node &left ,
+                             Tree_node &right)
+{
+    return new_node_op(&left, &right, nullptr, OP_SIN);
+}
+
+static Tree_node *cos       (Tree_node &left ,
+                             Tree_node &right)
+{
+    return new_node_op(&left, &right, nullptr, OP_COS);
+}
+
+/*_____________________________________________________________________*/
+
 void node_dtor(Tree_node *const node)
 {
     log_free(node);
@@ -619,6 +670,12 @@ Tree_node *diff_main(Tree_node *root)
     return diff_root;
 }
 
+#define DL *dL(node)
+#define DR *dR(node)
+#define CL *cL(node)
+#define CR *cR(node)
+#define      _(node) *(node)
+
 static Tree_node *diff_execute(Tree_node *node)
 {
     assert(node != nullptr);
@@ -631,17 +688,17 @@ static Tree_node *diff_execute(Tree_node *node)
         
         case NODE_OP:  switch(node->value.op)
                        {
-                           case OP_ADD: return Add(dL(node), dR(node));
+                           case OP_ADD: return DL + DR;
 
-                           case OP_SUB: return Sub(dL(node), dR(node));
+                           case OP_SUB: return DL - DR;
 
-                           case OP_MUL: return Add(Mul(dL(node), cR(node)), Mul(cL(node), dR(node)));
+                           case OP_MUL: return _(DL * CR) + _(CL * DR);
 
-                           case OP_DIV: return Div(Sub(Mul(dL(node), cR(node)), Mul(cL(node), dR(node))), Mul(cR(node), cR(node)));
+                           case OP_DIV: return _(_(DL * CR) - _(CL * DR)) / _(CR * CR);
                            
-                           case OP_SIN: return Mul(Cos(cL(node), cR(node)), dR(node));
+                           case OP_SIN: return _(cos(CL, CR)) * DR;
 
-                           case OP_COS: return Mul(Sub(cL(node), Sin(cL(node), cR(node))), dR(node));
+                           case OP_COS: return _(CL - _(sin(CL, CR))) * DR;
 
                            default    : Tree_dump_graphviz(node);
                                         assert(false && "default case in TYPE_OP-switch");
@@ -654,6 +711,12 @@ static Tree_node *diff_execute(Tree_node *node)
 
     return nullptr;
 }
+
+#undef DL
+#undef DR
+#undef CL
+#undef CR
+#undef _
 
 static void diff_prev_init(Tree_node *diff_node, Tree_node *prev)
 {
