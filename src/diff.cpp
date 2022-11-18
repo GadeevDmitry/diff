@@ -76,8 +76,9 @@ static const int op_priority[] =
     1   , // OP_SUB
     2   , // OP_MUL
     2   , // OP_DIV
-    3   , // OP_SIN
-    3   , // OP_COS
+    4   , // OP_SIN
+    4   , // OP_COS
+    3   , // OP_POW
 };
 
 static const char *op_names[] =
@@ -88,6 +89,7 @@ static const char *op_names[] =
     "/"     , // OP_DIV
     "sin"   , // OP_SIN
     "cos"   , // OP_COS
+    "^"     , // OP_POW
 };
 
 static const int VALUE_SIZE = 100;
@@ -503,6 +505,12 @@ static bool put_dbl(Tree_node *const node,  const char *data    ,
         log_error("Can't put double-value in nullptr-node.\n");
         return false;
     }
+    if (node->left  != nullptr ||
+        node->right != nullptr)
+    {
+        log_error("Can't put double-number in non-terminal node.\n");
+        return false;
+    }
     if (node->type != NODE_UNDEF)
     {
         log_error("Redefinition of dbl-node.\n");
@@ -548,6 +556,12 @@ static bool put_var(Tree_node *const node)
     if (node == nullptr)
     {
         log_error("Can't put variable in nullptr-node.\n");
+        return false;
+    }
+    if (node->left  != nullptr ||
+        node->right != nullptr)
+    {
+        log_error("Can't put variable in non-terminal mode");
         return false;
     }
     if (node->type != NODE_UNDEF)
@@ -642,7 +656,8 @@ static Tree_node *diff_execute(Tree_node *node)
                            case OP_SIN: return Mul(Cos(cL(node), cR(node)), dR(node));
 
                            case OP_COS: return Mul(Sub(cL(node), Sin(cL(node), cR(node))), dR(node));
-
+                           
+                           case OP_POW: 
                            default    : Tree_dump_graphviz(node);
                                         assert(false && "default case in TYPE_OP-switch");
                        }
@@ -653,6 +668,13 @@ static Tree_node *diff_execute(Tree_node *node)
     }
 
     return nullptr;
+}
+
+static Tree_node *diff_op_pow(Tree_node *node)
+{
+    assert(node           != nullptr);
+    assert(node->type     == NODE_OP);
+    assert(node->value.op ==  OP_POW);
 }
 
 static void diff_prev_init(Tree_node *diff_node, Tree_node *prev)

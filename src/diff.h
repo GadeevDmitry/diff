@@ -17,6 +17,7 @@ enum TYPE_OP
     OP_DIV      ,
     OP_SIN      ,
     OP_COS      ,
+    OP_POW      ,
 };
 
 struct Tree_node
