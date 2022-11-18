@@ -22,7 +22,5 @@
 #define Sub(left, right) new_node_op(left, right, nullptr, OP_SUB)
 #define Mul(left, right) new_node_op(left, right, nullptr, OP_MUL)
 #define Div(left, right) new_node_op(left, right, nullptr, OP_DIV)
-#define Sin(left, right) new_node_op(left, right, nullptr, OP_SIN)
-#define Cos(left, right) new_node_op(left, right, nullptr, OP_COS)
 
 #endif //DSL_H
