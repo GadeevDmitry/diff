@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
+#include <math.h>
 
 #include "algorithm.h"
 #include "../logs/log.h"
@@ -12,6 +13,13 @@
 static bool is_ban_char(const char check_to, const char *ban);
 
 /*____________________________________________________________*/
+
+bool approx_equal(const double a, const double b)
+{
+    const double delta = 0.0001;
+    
+    return fabs(a - b) <= delta;
+}
 
 void my_swap(void *a, void *b, const int elem_size)
 {

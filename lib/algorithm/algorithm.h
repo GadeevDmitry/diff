@@ -3,6 +3,7 @@
 
 /*_________________________________________FUNCTION_DECLARATIONS_________________________________________*/
 
+bool    approx_equal           (const double a, const double b);
 void    my_swap                (void *a, void *b,  const int elem_size);
 void   *get_ptr                (void *begin_array, const int index,     const int elem_size);
 
