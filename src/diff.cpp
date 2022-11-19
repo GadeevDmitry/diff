@@ -630,6 +630,7 @@ void Tree_optimize_main(Tree_node *root)
     }
 
     Tree_optimize_execute(root);
+    log_end_header       ();
 }
 
 static bool Tree_optimize_execute(Tree_node *node)
@@ -639,7 +640,11 @@ static bool Tree_optimize_execute(Tree_node *node)
         case NODE_NUM   :   return true ;
         case NODE_VAR   :   return false;
 
-        case NODE_OP    :   if (Tree_optimize_execute(node->left) && Tree_optimize_execute(node->right))
+        case NODE_OP    :   {
+                            bool is_num_left  = Tree_optimize_execute(node->left);
+                            bool is_num_right = Tree_optimize_execute(node->right);
+                            
+                            if (is_num_left && is_num_right)
                             {
                                 double val_left  = node->left ->value.dbl;
                                 double val_right = node->right->value.dbl;
@@ -651,7 +656,7 @@ static bool Tree_optimize_execute(Tree_node *node)
                                 return true;
                             }
                             else return false;
-
+                            }
         case NODE_UNDEF :
         default         :   log_error      ("default case in Tree_optimize_execute() in TYPE-NODE-switch: node_type = %d.\n", node->type);
                             assert(false && "default case in Tree_optimize_execute() in TYPE-NODE-switch");
@@ -667,8 +672,8 @@ static double Tree_counter(const double left, const double right, TYPE_OP op)
         case OP_SUB: return left - right;
         case OP_MUL: return left * right;
         case OP_DIV: return left / right;
-        case OP_SIN: return cos   (right);
-        case OP_COS: return sin   (left );
+        case OP_SIN: return sin   (right);
+        case OP_COS: return cos   (right);
 
         default    : log_error      ("default case in Tree_counter() op-switch: op = %d.\n", op);
                      assert(false && "default case in Tree_counter() op-switch");
