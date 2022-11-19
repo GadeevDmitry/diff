@@ -642,8 +642,8 @@ void Tree_optimize_main(Tree_node **root)
     }
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    log_message(__PRETTY_FUNCTION__);
-    log_message("\nroot->type = %d\n\n", (*root)->type);
+    //log_message(__PRETTY_FUNCTION__);
+    //;log_message("\nroot->type = %d\n\n", (*root)->type);
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     Tree_optimize_execute(root);
@@ -656,6 +656,7 @@ static void Tree_optimize_execute(Tree_node **node)
     assert(*node != nullptr);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    /*
     log_message(__PRETTY_FUNCTION__);
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
@@ -663,6 +664,7 @@ static void Tree_optimize_execute(Tree_node **node)
         log_message("node->op_type = %d\n\n", (*node)->value.op);
     }
     else log_message("\n");
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     if ((*node)->type != NODE_OP) return;
@@ -685,6 +687,7 @@ static bool Tree_optimize_numbers(Tree_node *node)
     assert(node->type == NODE_OP);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    /*
     log_message(__PRETTY_FUNCTION__);
     log_message("\nnode->type = %d\n", (node)->type);
     if ((node)->type == NODE_OP)
@@ -692,6 +695,7 @@ static bool Tree_optimize_numbers(Tree_node *node)
         log_message("node->op_type = %d\n\n", (node)->value.op);
     }
     else log_message("\n");
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     if (node->left ->type == NODE_NUM &&
@@ -736,6 +740,7 @@ static bool Tree_optimize_add_main(Tree_node **node)
     assert((*node)->type == NODE_OP);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    /*
     log_message(__PRETTY_FUNCTION__);
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
@@ -743,6 +748,7 @@ static bool Tree_optimize_add_main(Tree_node **node)
         log_message("node->op_type = %d\n\n", (*node)->value.op);
     }
     else log_message("\n");
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     if ((*node)->value.op != OP_ADD) return false;
@@ -768,6 +774,7 @@ static bool Tree_optimize_sub_main(Tree_node **node)
     assert((*node)->type == NODE_OP);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    /*
     log_message(__PRETTY_FUNCTION__);
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
@@ -775,6 +782,7 @@ static bool Tree_optimize_sub_main(Tree_node **node)
         log_message("node->op_type = %d\n\n", (*node)->value.op);
     }
     else log_message("\n");
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     if ((*node)->value.op != OP_SUB) return false;
@@ -794,6 +802,7 @@ static bool Tree_optimize_mul_main(Tree_node **node)
     assert((*node)->type == NODE_OP);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    /*
     log_message(__PRETTY_FUNCTION__);
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
@@ -801,6 +810,7 @@ static bool Tree_optimize_mul_main(Tree_node **node)
         log_message("node->op_type = %d\n\n", (*node)->value.op);
     }
     else log_message("\n");
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     if ((*node)->value.op != OP_MUL) return false;
@@ -835,6 +845,7 @@ static bool Tree_optimize_div_main(Tree_node **node)
     assert((*node)->type == NODE_OP);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    /*
     log_message(__PRETTY_FUNCTION__);
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
@@ -842,6 +853,7 @@ static bool Tree_optimize_div_main(Tree_node **node)
         log_message("node->op_type = %d\n\n", (*node)->value.op);
     }
     else log_message("\n");
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     if ((*node)->value.op != OP_DIV) return false;
@@ -875,6 +887,7 @@ static void Tree_optimize_add_sub_mul_div(Tree_node **node, Tree_node **null_son
     assert(*good_son != nullptr);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    /*
     log_message(__PRETTY_FUNCTION__);
     
     log_message("\nnode: %p\n", *node);
@@ -887,12 +900,17 @@ static void Tree_optimize_add_sub_mul_div(Tree_node **node, Tree_node **null_son
     log_message("good_son->type = %d \n", (*good_son)->type);
     
     Tree_dump_graphviz((*node)->prev);
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     node_dtor(*null_son);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    log_message("(*node)->prev: %p\n", (*node)->prev);
+    /*
+    log_message("  node       : %p\n",  node);
+    log_message("(*node)      : %p\n", *node);
+    log_message("(*node)->prev: %p\n\n", (*node)->prev);
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     if ((*node)->prev == nullptr) // change the root of the tree
@@ -903,6 +921,17 @@ static void Tree_optimize_add_sub_mul_div(Tree_node **node, Tree_node **null_son
 
         return;
     }
+
+    //create copies to avoid loss of old values
+
+    Tree_node *link_node     = &(**node);
+    Tree_node *link_null_son = &(**null_son);
+    Tree_node *link_good_son = &(**good_son);
+
+    node     = &link_node;
+    null_son = &link_null_son;
+    good_son = &link_good_son;
+    
     //delete the "node" from the tree and rehang the "good_son"
 
     if ((*node)->prev->left == (*node))
@@ -913,21 +942,39 @@ static void Tree_optimize_add_sub_mul_div(Tree_node **node, Tree_node **null_son
     else
     {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        log_message("else case\n\n");
+        /*
+        log_message("else case\n");
+        log_message("%p\n", &((*node)->prev->right));
+        log_message("%p\n\n", &(*(**node).prev).right);
+        */
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
         (*node)    ->prev->right =  *good_son;
+        
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        log_message("(*node)->prev: %p\n", (*node)->prev);
+        /*
+        log_message("  node       : %p\n",  node);
+        log_message("(*node)      : %p\n", *node);
+        log_message("(*node)->prev: %p\n\n", (*node)->prev);
+        */
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        
         (*good_son)->prev        = (*node    )->prev;
+        
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        log_message("(*node)->prev: %p\n", (*node)->prev);
+        /*
+        log_message("  node       : %p\n",  node);
+        log_message("(*node)      : %p\n", *node);
+        log_message("(*node)->prev: %p\n\n", (*node)->prev);
+        */
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    /*
     log_message("(*node)->prev: %p\n", (*node)->prev);
     Tree_dump_graphviz((*node)->prev);
+    */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     
     node_dtor(*node);

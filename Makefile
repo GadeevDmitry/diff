@@ -21,4 +21,4 @@ $(RW).o:   $(RW).cpp
 	g++ -c $^ -o $@ $(FLAG)
 
 $(ALG).o:  $(ALG).cpp
-	g++ -c $^ -o $@ $(FLAG)
+	g++ -c $^ -o $@ $(FALG)
