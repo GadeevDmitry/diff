@@ -13,6 +13,9 @@
 #define undef_ctor(node)                                                \
    node_undef_ctor(node, (node)->prev);
 
+#define is_left_subtree(node)  node->prev->left  == node
+#define is_right_subtree(node) node->prev->right == node
+
 #define dL(node) diff_execute((node)->left )
 #define dR(node) diff_execute((node)->right)
 #define cL(node) Tree_copy   ((node)->left )
