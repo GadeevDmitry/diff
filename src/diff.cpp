@@ -65,6 +65,7 @@ static void         Tree_dump_tex_system    (char *const dump_tex, char *const d
 static void         Tree_dump_tex_dfs       (Tree_node *node, bool bracket, FILE *const stream);
 static void         Tree_dump_tex_op_sin_cos(Tree_node *node, FILE *const stream);
 static void         Tree_dump_tex_op_div    (Tree_node *node, FILE *const stream);
+static bool         Tree_dump_tex_op_sub    (Tree_node *node, FILE *const stream);
 
 /*___________________________STATIC_CONST______________________________*/
 
@@ -1365,8 +1366,13 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
 
     if (bracket) fprintf(stream, "(");
 
-    if      (node->type     == NODE_NUM  ) fprintf(stream, "%lg", node->value.dbl);
+    if (node->type     == NODE_NUM  )
+    {
+        if (node->value.dbl >= 0) fprintf(stream, "%lg"  , node->value.dbl);
+        else                      fprintf(stream, "(%lg)", node->value.dbl);
+    }
     else if (node->type     == NODE_VAR  ) fprintf(stream, " x");
+    else if (node->value.op ==   OP_SUB && Tree_dump_tex_op_sub(node, stream)) ;
     else if (node->value.op ==   OP_DIV  ) Tree_dump_tex_op_div(node, stream);
     else if (node->value.op ==   OP_SIN ||
              node->value.op ==   OP_COS  ) Tree_dump_tex_op_sin_cos(node, stream);
@@ -1416,4 +1422,19 @@ static void Tree_dump_tex_op_div(Tree_node *node, FILE *const stream)
     fprintf          (stream, "}");
 }
 
+static bool Tree_dump_tex_op_sub(Tree_node *node, FILE *const stream)
+{
+    assert(node           != nullptr);
+    assert(stream         != nullptr);
+    assert(node->type     == NODE_OP);
+    assert(node->value.op == OP_SUB );
+
+    if (node->left->type == NODE_NUM && approx_equal(0, node->left->value.op))
+    {
+        fprintf(stream, "-");
+        Tree_dump_tex_dfs(node->right, false, stream);
+        return true;
+    }
+    return false;
+}
 /*_____________________________________________________________________*/
