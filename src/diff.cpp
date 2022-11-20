@@ -69,6 +69,7 @@ static void         Tree_dump_tex_system        (char *const dump_tex, char *con
 static void         Tree_dump_tex_dfs           (Tree_node *node, bool bracket, FILE *const stream);
 static void         Tree_dump_tex_op_sin_cos_log(Tree_node *node, FILE *const stream);
 static void         Tree_dump_tex_op_div        (Tree_node *node, FILE *const stream);
+static void         Tree_dump_tex_op_pow        (Tree_node *node, FILE *const stream);
 static bool         Tree_dump_tex_op_sub        (Tree_node *node, FILE *const stream);
 static void         dump_tex_num                (Tree_node *node, FILE *const stream);
 
@@ -1462,6 +1463,7 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
     else if (node->value.op ==   OP_SIN ||
              node->value.op ==   OP_COS ||
              node->value.op ==   OP_LOG  ) Tree_dump_tex_op_sin_cos_log(node, stream);
+    else if (node->value.op ==   OP_POW  ) Tree_dump_tex_op_pow(node, stream);
     else
     {
         if (node->left->type != NODE_OP || op_priority[node->left->value.op] >= op_priority[node->value.op])
@@ -1509,6 +1511,19 @@ static void Tree_dump_tex_op_div(Tree_node *node, FILE *const stream)
     fprintf          (stream, "}");
 }
 
+static void Tree_dump_tex_op_pow(Tree_node *node, FILE *const stream)
+{
+    assert(node           != nullptr);
+    assert(stream         != nullptr);
+    assert(node->type     == NODE_OP);
+    assert(node->value.op ==  OP_POW);
+
+    Tree_dump_tex_dfs(node->left, false, stream);
+    fprintf          (stream, "^{");
+    Tree_dump_tex_dfs(node->right, false, stream);
+    fprintf          (stream, "}");
+}
+
 static bool Tree_dump_tex_op_sub(Tree_node *node, FILE *const stream)
 {
     assert(node           != nullptr);
@@ -1537,31 +1552,32 @@ static void dump_tex_num(Tree_node *node, FILE *const stream)
 
 /*_____________________________________________________________________*/
 
-void Tex_head(const char *file)
+void Tex_head(const char *file, FILE **stream)
 {
     log_header(__PRETTY_FUNCTION__);
 
-    if (file == nullptr)
+    if (file == nullptr || stream == nullptr)
     {
-        log_error("Pointer to the file is nullptr.\n");
+        log_error("Pointer to the file or stream is nullptr.\n");
         return;
     }
 
-    FILE *stream_txt =  fopen(file, "w");
-    if   (stream_txt == nullptr)
+    *stream = fopen(file, "w");
+    if   (*stream == nullptr)
     {
         log_error     ("Can't open tex-dump file.\n");
         log_end_header();
         return;
     }
 
-    setvbuf(stream_txt, nullptr, _IONBF, 0);
-    fprintf(stream_txt, tex_header);
+    setvbuf(*stream, nullptr, _IONBF, 0);
+    fprintf(*stream, tex_header);
 
-    log_end_header      ();
+    log_end_header();
 }
 
-void Tex_tree(Tree_node *root, FILE *const stream)
+void Tex_tree(Tree_node *root, FILE *const stream,  const char *text_before,
+                                                    const char *text_after )
 {
     log_header(__PRETTY_FUNCTION__);
 
@@ -1572,13 +1588,14 @@ void Tex_tree(Tree_node *root, FILE *const stream)
                        "Get graphviz_dump.\n");
         
         Tree_dump_graphviz(root);
-        log_end_header    ();
         return;
     }
 
-    fprintf          (stream, "$$\n");
+    if (text_before != nullptr) fprintf(stream, "%s", text_before);
+    
     Tree_dump_tex_dfs(root, false, stream);
-    fprintf          (stream, "\n$$\n");
+    
+    if (text_after  != nullptr) fprintf(stream, "%s", text_after );
 
     log_end_header   ();
 }
