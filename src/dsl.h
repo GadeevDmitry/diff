@@ -21,11 +21,15 @@
 #define cL(node) Tree_copy   ((node)->left )
 #define cR(node) Tree_copy   ((node)->right)
 
-#define Add(left, right) new_node_op(left, right, nullptr, OP_ADD)
-#define Sub(left, right) new_node_op(left, right, nullptr, OP_SUB)
-#define Mul(left, right) new_node_op(left, right, nullptr, OP_MUL)
-#define Div(left, right) new_node_op(left, right, nullptr, OP_DIV)
-#define Sin(left, right) new_node_op(left, right, nullptr, OP_SIN)
-#define Cos(left, right) new_node_op(left, right, nullptr, OP_COS)
+#define Add(left, right) new_node_op (left, right, nullptr, OP_ADD)
+#define Sub(left, right) new_node_op (left, right, nullptr, OP_SUB)
+#define Mul(left, right) new_node_op (left, right, nullptr, OP_MUL)
+#define Div(left, right) new_node_op (left, right, nullptr, OP_DIV)
+#define Pow(left, right) new_node_op (left, right, nullptr, OP_POW)
+#define Log(left, right) new_node_op (left, right, nullptr, OP_LOG)
+#define Sin(left, right) new_node_op (left, right, nullptr, OP_SIN)
+#define Cos(left, right) new_node_op (left, right, nullptr, OP_COS)
+#define Nul              new_node_num(0,           nullptr        )
+#define DropPow(num)     new_node_num(num - 1,     nullptr        )
 
 #endif //DSL_H
