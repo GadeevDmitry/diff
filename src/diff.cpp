@@ -51,6 +51,7 @@ static bool         Tree_optimize_pow_main          (Tree_node **node);
 static void         Tree_optimize_all               (Tree_node **node, Tree_node **null_son, Tree_node **good_son);
 
 static Tree_node   *diff_execute            (Tree_node *const node);
+static Tree_node   *diff_op_case            (Tree_node *const node);
 static Tree_node   *diff_op_pow             (Tree_node *const node);
 static void         diff_prev_init          (Tree_node *diff_node, Tree_node *prev);
 static Tree_node   *Tree_copy               (Tree_node *cp_from);
@@ -1077,34 +1078,11 @@ static Tree_node *diff_execute(Tree_node *const node)
 
     switch(node->type)
     {
-        case NODE_NUM: return new_node_num(0, nullptr);
+        case NODE_NUM  : return new_node_num(0, nullptr);
         
-        case NODE_VAR: return new_node_num(1, nullptr);
+        case NODE_VAR  : return new_node_num(1, nullptr);
         
-        case NODE_OP:  switch(node->value.op)
-                       {
-                           case OP_ADD: return Add(DL, DR);
-
-                           case OP_SUB: return Sub(DL, DR);
-
-                           case OP_MUL: return Add(Mul(DL, CR), Mul(CL, DR));
-
-                           case OP_DIV: return Div(Sub(Mul(DL, CR), Mul(CL, DR)), Mul(CR, CR));
-                           
-                           case OP_SIN: return Mul(Cos(CL, CR), DR);
-
-                           case OP_COS: return Mul(Sub(CL, Sin(CL, CR)), DR);
-                           
-                           case OP_LOG: return Div(DR, CR);
-
-                           case OP_POW: return diff_op_pow(node);
-
-                           default    : log_error      ("default case in diff_execute() in TYPE-OP-switch: op_type = %d.\n", node->value.op);
-                                        Tree_dump_graphviz(node);
-                                        assert(false && "default case in diff_execute() in TYPE_OP-switch");
-                                        return nullptr;
-                       }
-                       return nullptr;
+        case NODE_OP   : return diff_op_case(node);
         
         case NODE_UNDEF:
         default        : log_error      ("default case in diff_execute() in TYPE-NODE-switch: node_type = %d.\n", node->type);
@@ -1113,6 +1091,37 @@ static Tree_node *diff_execute(Tree_node *const node)
                          return nullptr;
     }
 
+    return nullptr;
+}
+
+static Tree_node *diff_op_case(Tree_node *const node)
+{
+    assert(node       != nullptr);
+    assert(node->type == NODE_OP);
+
+    switch(node->value.op)
+    {
+        case OP_ADD: return Add(DL, DR);
+
+        case OP_SUB: return Sub(DL, DR);
+
+        case OP_MUL: return Add(Mul(DL, CR), Mul(CL, DR));
+
+        case OP_DIV: return Div(Sub(Mul(DL, CR), Mul(CL, DR)), Mul(CR, CR));
+
+        case OP_SIN: return Mul(Cos(CL, CR), DR);
+
+        case OP_COS: return Mul(Sub(CL, Sin(CL, CR)), DR);
+
+        case OP_LOG: return Div(DR, CR);
+
+        case OP_POW: return diff_op_pow(node);
+
+        default    : log_error      ("default case in diff_execute() in TYPE-OP-switch: op_type = %d.\n", node->value.op);
+                     Tree_dump_graphviz(node);
+                     assert(false && "default case in diff_execute() in TYPE_OP-switch");
+                     return nullptr;
+    }
     return nullptr;
 }
 
@@ -1334,26 +1343,27 @@ static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
 
     if (bracket) log_message("(");
 
-    if      (node->type == NODE_NUM     ) dump_txt_num(node);
-    else if (node->type == NODE_VAR     ) log_message ("x");
-    else if (node->value.op == OP_SIN ||
-             node->value.op == OP_COS ||
-             node->value.op == OP_LOG   ) dump_txt_sin_cos_log(node);
+    if      (node->type     == NODE_NUM ) dump_txt_num(node);
+    else if (node->type     == NODE_VAR ) log_message ("x");
     else
     {
-        if (node->left->type != NODE_OP || op_priority[node->left->value.op] >= op_priority[node->value.op])
+        switch(node->value.op)
         {
-            Tree_dump_txt_dfs(node->left, false);
-        }
-        else { Tree_dump_txt_dfs(node->left, true); }
+            case OP_SIN:
+            case OP_COS:
+            case OP_LOG: dump_txt_sin_cos_log(node);
+                         break;
+            
+            default    : {
+                            Tree_dump_txt_dfs(node->left, !(node->left->type != NODE_OP ||  op_priority[node->left->value.op] >= 
+                                                                                            op_priority[node->      value.op]));
+                            log_message(op_names[node->value.op]);
 
-        log_message(op_names[node->value.op]);
-
-        if (node->right->type != NODE_OP || op_priority[node->right->value.op] > op_priority[node->value.op])
-        {
-            Tree_dump_txt_dfs(node->right, false);
+                            Tree_dump_txt_dfs(node->right, !(node->right->type != NODE_OP || op_priority[node->right->value.op] >
+                                                                                             op_priority[node->       value.op]));
+                            break;
+                         }
         }
-        else { Tree_dump_txt_dfs(node->right, true); }
     }
 
     if (bracket) log_message(")");
@@ -1459,28 +1469,34 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
     if      (node->type     == NODE_NUM  ) dump_tex_num(node, stream);
     else if (node->type     == NODE_VAR  ) fprintf(stream, " x");
     else if (node->value.op ==   OP_SUB && Tree_dump_tex_op_sub(node, stream));
-    else if (node->value.op ==   OP_DIV  ) Tree_dump_tex_op_div(node, stream);
-    else if (node->value.op ==   OP_SIN ||
-             node->value.op ==   OP_COS ||
-             node->value.op ==   OP_LOG  ) Tree_dump_tex_op_sin_cos_log(node, stream);
-    else if (node->value.op ==   OP_POW  ) Tree_dump_tex_op_pow(node, stream);
     else
     {
-        if (node->left->type != NODE_OP || op_priority[node->left->value.op] >= op_priority[node->value.op])
+        switch (node->value.op)
         {
-            Tree_dump_tex_dfs(node->left, false, stream);
-        }
-        else { Tree_dump_tex_dfs(node->left, true, stream); }
+            case OP_DIV: Tree_dump_tex_op_div(node, stream);
+                         break;
+            
+            case OP_SIN:
+            case OP_COS:
+            case OP_LOG: Tree_dump_tex_op_sin_cos_log(node, stream);
+                         break;
+            
+            case OP_POW: Tree_dump_tex_op_pow(node, stream);
+                         break;
 
-        fprintf(stream, op_names[node->value.op]);
+            default     : {
+                            Tree_dump_tex_dfs(node->left, !(node->left->type != NODE_OP ||  op_priority[node->left->value.op] >= 
+                                                                                            op_priority[node->      value.op]),
+                                                                                            stream);
+                            fprintf(stream, op_names[node->value.op]);
 
-        if (node->right->type != NODE_OP || op_priority[node->right->value.op] > op_priority[node->value.op])
-        {
-            Tree_dump_tex_dfs(node->right, false, stream);
+                            Tree_dump_tex_dfs(node->right, !(node->right->type != NODE_OP || op_priority[node->right->value.op] >
+                                                                                             op_priority[node->       value.op]),
+                                                                                             stream);
+                            break;
+                          }
         }
-        else { Tree_dump_tex_dfs(node->right, true, stream); }
     }
-
     if (bracket) fprintf(stream, ")");
 }
 
