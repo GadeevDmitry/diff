@@ -1536,3 +1536,72 @@ static void dump_tex_num(Tree_node *node, FILE *const stream)
 }
 
 /*_____________________________________________________________________*/
+
+void Tex_head(const char *file)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (file == nullptr)
+    {
+        log_error("Pointer to the file is nullptr.\n");
+        return;
+    }
+
+    FILE *stream_txt =  fopen(file, "w");
+    if   (stream_txt == nullptr)
+    {
+        log_error     ("Can't open tex-dump file.\n");
+        log_end_header();
+        return;
+    }
+
+    setvbuf(stream_txt, nullptr, _IONBF, 0);
+    fprintf(stream_txt, tex_header);
+
+    log_end_header      ();
+}
+
+void Tex_tree(Tree_node *root, FILE *const stream)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (Tree_verify(root) == false)
+    {
+        log_end_header();
+        log_error     ("Can't tex invalid tree.\n"
+                       "Get graphviz_dump.\n");
+        
+        Tree_dump_graphviz(root);
+        log_end_header    ();
+        return;
+    }
+
+    fprintf          (stream, "$$\n");
+    Tree_dump_tex_dfs(root, false, stream);
+    fprintf          (stream, "\n$$\n");
+
+    log_end_header   ();
+}
+
+void Tex_message(FILE *const stream, const char *fmt, ...)
+{
+    assert(stream != nullptr);
+    assert(fmt    != nullptr);
+
+    va_list  ap;
+    va_start(ap, fmt);
+
+    vfprintf(stream, fmt, ap);
+    
+    va_end(ap);
+}
+
+void Tex_end(FILE *const stream)
+{
+    assert(stream != nullptr);
+
+    fprintf(stream, "\\end{document}\n");
+    fclose (stream);
+}
+
+/*_____________________________________________________________________*/

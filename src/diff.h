@@ -69,6 +69,11 @@ void        Tree_dump_graphviz  (Tree_node *root);
 void        Tree_dump_txt       (Tree_node *root);
 void        Tree_dump_tex       (Tree_node *root);
 
+void        Tex_head            (const char *file);
+void        Tex_tree            (Tree_node *root, FILE *const stream);
+void        Tex_message         (FILE *const stream, const char *fmt, ...);
+void        Tex_end             (FILE *const stream);
+
 /*______________________________________________________________________________________*/
 
 #endif //DIFF_H
