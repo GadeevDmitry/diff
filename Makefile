@@ -2,11 +2,15 @@ FLAG = -D _DEBUG -ggdb3 -std=c++20 -O0 -Wall -Wextra -Weffc++ -Waggressive-loop-
 
 PROJ = src/diff
 MAIN = src/main
+TEX  = src/tex_generate
 
 LOG  = lib/logs/log
 RW   = lib/read_write/read_write
 ALG  = lib/algorithm/algorithm
 TEST = test
+
+gen :	$(TEX).cpp $(PROJ).o $(LOG).o $(RW).o $(ALG).o
+	g++ $^ -o $@ $(FLAG)
 
 diff: 	$(MAIN).cpp $(PROJ).o $(LOG).o $(RW).o $(ALG).o
 	g++ $^ -o $@ $(FLAG)
