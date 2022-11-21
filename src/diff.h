@@ -81,6 +81,9 @@ void        Tree_dump_tex       (Tree_node *root);
 void        Tex_head            (const char *file, FILE **stream);
 void        Tex_tree            (Tree_node *root, FILE *const stream,   const char *text_before = nullptr,
                                                                         const char *text_after  = nullptr);
+void        Tex_tree_with_value(Tree_node *root, FILE *const stream,    const char *text_before,
+                                                                        const char *text_after , const double x_val);
+
 void        Tex_message         (FILE *const stream, const char *fmt, ...);
 void        Tex_end             (FILE *const stream);
 

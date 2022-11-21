@@ -69,13 +69,20 @@ static void         dump_txt_num                (Tree_node *node);
 static void         dump_txt_unary              (Tree_node *node);
 
 static void         Tree_dump_tex_system        (char *const dump_tex, char *const dump_pdf, const int cur);
+
 static void         Tree_dump_tex_dfs           (Tree_node *node, bool bracket, FILE *const stream);
+static void         Tree_dump_tex_dfs_with_value(Tree_node *node, bool bracket, FILE *const stream, const double x_val);
+
 static void         Tree_dump_tex_op_unary      (Tree_node *node, FILE *const stream);
 static void         Tree_dump_tex_op_sqrt       (Tree_node *node, FILE *const stream);
 static void         Tree_dump_tex_op_div        (Tree_node *node, FILE *const stream);
 static void         Tree_dump_tex_op_pow        (Tree_node *node, FILE *const stream);
 static bool         Tree_dump_tex_op_sub        (Tree_node *node, FILE *const stream);
 static void         dump_tex_num                (Tree_node *node, FILE *const stream);
+static void         dump_tex_num                (const double num,FILE *const stream);
+
+static void         Tex_tree                    (Tree_node *root, FILE *const stream,   const char *text_before,
+                                                                                        const char *text_after , bool is_val, const double x_val);
 
 /*___________________________STATIC_CONST______________________________*/
 
@@ -1210,37 +1217,6 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 
 /*_____________________________________________________________________*/
 
-double get_value_in_point(Tree_node *root, const double x_val)
-{
-    log_header(__PRETTY_FUNCTION__);
-
-    if (Tree_verify(root) == false)
-    {
-        log_error("Can't get value in the point of invalid tree.\n");
-
-        Tree_dump_graphviz(root);
-        return 0;
-    }
-
-    log_end_header();
-    return dfs_value_in_point(root, x_val);
-}
-
-static double dfs_value_in_point(const Tree_node *node, const double x_val)
-{
-    assert(node != nullptr);
-
-    if (node->type == NODE_VAR) return x_val;
-    if (node->type == NODE_NUM) return node->value.dbl;
-
-    double left  = dfs_value_in_point(node->left , x_val);
-    double right = dfs_value_in_point(node->right, x_val);
-
-    return Tree_counter(left, right, node->value.op);
-}
-
-/*_____________________________________________________________________*/
-
 void Tree_dump_graphviz(Tree_node *root)
 {
     log_header  (__PRETTY_FUNCTION__);
@@ -1646,9 +1622,16 @@ static void dump_tex_num(Tree_node *node, FILE *const stream)
     assert(node       !=  nullptr);
     assert(node->type == NODE_NUM);
 
-    if (approx_equal(e, node->value.dbl)) fprintf(stream, "e");
-    else if (node->value.dbl >= 0)        fprintf(stream, "%lg"  , node->value.dbl);
-    else                                  fprintf(stream, "(%lg)", node->value.dbl);
+    dump_tex_num(node->value.dbl, stream);
+}
+
+static void dump_tex_num(const double num, FILE *const stream)
+{
+    assert(stream != nullptr);
+
+    if (approx_equal(e, num)) fprintf(stream, "e");
+    else if (num >= 0)        fprintf(stream, "%lg",   num);
+    else                      fprintf(stream, "(%lg)", num);
 }
 
 /*_____________________________________________________________________*/
@@ -1677,8 +1660,8 @@ void Tex_head(const char *file, FILE **stream)
     log_end_header();
 }
 
-void Tex_tree(Tree_node *root, FILE *const stream,  const char *text_before,
-                                                    const char *text_after )
+static void Tex_tree(Tree_node *root, FILE *const stream,   const char *text_before,
+                                                            const char *text_after , bool is_val, const double x_val)
 {
     log_header(__PRETTY_FUNCTION__);
 
@@ -1693,13 +1676,44 @@ void Tex_tree(Tree_node *root, FILE *const stream,  const char *text_before,
     }
 
     if (text_before != nullptr) fprintf(stream, "%s", text_before);
-    
-    Tree_dump_tex_dfs(root, false, stream);
-    
+
+    if (!is_val) Tree_dump_tex_dfs              (root, false, stream);
+    else         Tree_dump_tex_dfs_with_value   (root, false, stream, x_val);
+
     if (text_after  != nullptr) fprintf(stream, "%s", text_after );
 
     log_end_header   ();
 }
+
+static void Tree_dump_tex_dfs_with_value(Tree_node *node, bool bracket, FILE *const stream, const double x_val)
+{
+    assert(node   != nullptr);
+    assert(stream != nullptr);
+
+    if (node->type == NODE_VAR)
+    {
+        if (bracket) fprintf(stream, "(");
+        dump_tex_num(x_val,  stream);
+        if (bracket) fprintf(stream, ")");
+    }
+    else Tree_dump_tex_dfs(node, bracket, stream);
+}
+
+/*_____________________________________________________________________*/
+
+void Tex_tree_with_value(Tree_node *root, FILE *const stream,   const char *text_before,
+                                                                const char *text_after , const double x_val)
+{
+    Tex_tree(root, stream, text_before, text_after, true, x_val);
+}
+
+void Tex_tree(Tree_node *root, FILE *const stream,  const char *text_before,
+                                                    const char *text_after)
+{
+    Tex_tree(root, stream, text_before, text_after, false, 0);
+}
+
+/*_____________________________________________________________________*/
 
 void Tex_message(FILE *const stream, const char *fmt, ...)
 {
@@ -1720,6 +1734,37 @@ void Tex_end(FILE *const stream)
 
     fprintf(stream, "\\end{document}\n");
     fclose (stream);
+}
+
+/*_____________________________________________________________________*/
+
+double get_value_in_point(Tree_node *root, const double x_val)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (Tree_verify(root) == false)
+    {
+        log_error("Can't get value in the point of invalid tree.\n");
+
+        Tree_dump_graphviz(root);
+        return 0;
+    }
+
+    log_end_header();
+    return dfs_value_in_point(root, x_val);
+}
+
+static double dfs_value_in_point(const Tree_node *node, const double x_val)
+{
+    assert(node != nullptr);
+
+    if (node->type == NODE_VAR) return x_val;
+    if (node->type == NODE_NUM) return node->value.dbl;
+
+    double left  = dfs_value_in_point(node->left , x_val);
+    double right = dfs_value_in_point(node->right, x_val);
+
+    return Tree_counter(left, right, node->value.op);
 }
 
 /*_____________________________________________________________________*/
