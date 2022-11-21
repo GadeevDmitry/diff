@@ -98,9 +98,15 @@ static const int op_priority[] =
     2   , // OP_DIV
     4   , // OP_SIN
     4   , // OP_COS
+    4   , // OP_TAN
     3   , // OP_POW
     4   , // OP_LOG
     4   , // OP_SQRT
+    4   , // OP_SH
+    4   , // OP_CH
+    4   , // OP_ASIN
+    4   , // OP_ACOS
+    4   , // OP_ATAN
 };
 
 static const char *op_names[] =
@@ -111,9 +117,15 @@ static const char *op_names[] =
     "/"     , // OP_DIV
     "sin"   , // OP_SIN
     "cos"   , // OP_COS
+    "tg"    , // OP_TAN
     "^"     , // OP_POW
     "ln"    , // OP_LOG
     "sqrt"  , // OP_SQRT
+    "sh"    , // OP_SH
+    "ch"    , // OP_CH
+    "arcsin", // OP_ASIN
+    "arccos", // OP_ACOS
+    "arctan", // OP_ATAN
 };
 
 static const int VALUE_SIZE = 100;
@@ -749,9 +761,15 @@ static double Tree_counter(const double left, const double right, TYPE_OP op)
         case OP_DIV : return left / right;
         case OP_SIN : return sin   (right);
         case OP_COS : return cos   (right);
+        case OP_TAN : return tan   (right);
         case OP_POW : return pow   (left, right);
         case OP_LOG : return log   (right);
         case OP_SQRT: return sqrt  (right);
+        case OP_SH  : return sinh  (right);
+        case OP_CH  : return cosh  (right);
+        case OP_ASIN: return asin  (right);
+        case OP_ACOS: return acos  (right);
+        case OP_ATAN: return atan  (right);
 
         default     : log_error      ("default case in Tree_counter() op-switch: op = %d.\n", op);
                       assert(false && "default case in Tree_counter() op-switch");
@@ -1108,22 +1126,27 @@ static Tree_node *diff_op_case(Tree_node *const node)
     switch(node->value.op)
     {
         case OP_ADD : return Add(DL, DR);
-
         case OP_SUB : return Sub(DL, DR);
 
         case OP_MUL : return Add(Mul(DL, CR), Mul(CL, DR));
-
-        case OP_DIV : return Div(Sub(Mul(DL, CR), Mul(CL, DR)), Mul(CR, CR));
+        case OP_DIV : return Div(Sub(Mul(DL, CR), Mul(CL, DR)), Pow(CR, new_node_num(2, nullptr)));
 
         case OP_SIN : return Mul(Cos(CL, CR), DR);
-
-        case OP_COS : return Mul(Sub(CL, Sin(CL, CR)), DR);
+        case OP_COS : return Mul(Sub(Nul, Sin(CL, CR)), DR);
+        case OP_TAN : return Div(DR, Pow(Cos(CL, CR), new_node_num(2, nullptr)));
 
         case OP_LOG : return Div(DR, CR);
 
         case OP_POW : return diff_op_pow(node);
 
         case OP_SQRT: return Div(DR, Mul(new_node_num(2, nullptr), Sqrt(CL, CR)));
+
+        case OP_SH  : return Mul(Ch(CL, CR), DR);
+        case OP_CH  : return Mul(Sh(CL, CR), DR);
+
+        case OP_ASIN: return         Div(DR, Sqrt(Nul, Sub(new_node_num(1, nullptr), Pow(CR, new_node_num(2, nullptr)))));
+        case OP_ACOS: return Sub(0 , Div(DR, Sqrt(Nul, Sub(new_node_num(1, nullptr), Pow(CR, new_node_num(2, nullptr))))));
+        case OP_ATAN: return Div(DR,                   Add(new_node_num(1, nullptr), Pow(CR, new_node_num(2, nullptr))));
 
         default     : log_error      ("default case in diff_execute() in TYPE-OP-switch: op_type = %d.\n", node->value.op);
                       Tree_dump_graphviz(node);
@@ -1390,9 +1413,15 @@ static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
         {
             case OP_SIN :
             case OP_COS :
+            case OP_TAN :
             case OP_SQRT:
+            case OP_SH  :
+            case OP_CH  :
+            case OP_ASIN:
+            case OP_ACOS:
+            case OP_ATAN:
             case OP_LOG : dump_txt_unary(node);
-                         break;
+                          break;
             
             default    : {
                             Tree_dump_txt_dfs(node->left, !(node->left->type != NODE_OP ||  op_priority[node->left->value.op] >= 
@@ -1421,11 +1450,8 @@ static void dump_txt_num(Tree_node *node)
 
 static void dump_txt_unary(Tree_node *node)
 {
-    assert(node           != nullptr);
-    assert(node->value.op == OP_SIN  ||
-           node->value.op == OP_COS  ||
-           node->value.op == OP_SQRT ||
-           node->value.op == OP_LOG);
+    assert(node       != nullptr);
+    assert(node->type == NODE_OP);
 
     log_message(op_names[node->value.op]);
     Tree_dump_txt_dfs(node->right, true);
@@ -1519,6 +1545,12 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
             
             case OP_SIN :
             case OP_COS :
+            case OP_TAN :
+            case OP_SH  :
+            case OP_CH  :
+            case OP_ASIN:
+            case OP_ACOS:
+            case OP_ATAN:
             case OP_LOG : Tree_dump_tex_op_unary(node, stream);
                           break;
             
@@ -1549,10 +1581,6 @@ static void Tree_dump_tex_op_unary(Tree_node *node, FILE *const stream)
     assert(node           != nullptr );
     assert(stream         != nullptr );
     assert(node->type     == NODE_OP );
-    assert(node->value.op == OP_SIN  ||
-           node->value.op == OP_COS  ||
-           node->value.op == OP_SQRT ||
-           node->value.op == OP_LOG  );
 
     fprintf          (stream, " %s", op_names[node->value.op]);
     Tree_dump_tex_dfs(node->right, true, stream);

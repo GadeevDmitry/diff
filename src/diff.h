@@ -17,9 +17,15 @@ enum TYPE_OP
     OP_DIV      ,
     OP_SIN      ,
     OP_COS      ,
+    OP_TAN      ,
     OP_POW      ,
     OP_LOG      ,
     OP_SQRT     ,
+    OP_SH       ,
+    OP_CH       ,
+    OP_ASIN     ,
+    OP_ACOS     ,
+    OP_ATAN     ,
 };
 
 struct Tree_node

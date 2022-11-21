@@ -30,6 +30,8 @@
 #define  Sin(left, right) new_node_op (left, right, nullptr, OP_SIN )
 #define  Cos(left, right) new_node_op (left, right, nullptr, OP_COS )
 #define Sqrt(left, right) new_node_op (left, right, nullptr, OP_SQRT)
+#define   Sh(left, right) new_node_op (left, right, nullptr, OP_SH  )
+#define   Ch(left, right) new_node_op (left, right, nullptr, OP_CH  )
 
 #define Nul              new_node_num(0,           nullptr          )
 #define DropPow(num)     new_node_num(num - 1,     nullptr          )
