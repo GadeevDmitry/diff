@@ -223,17 +223,17 @@ static void Tree_verify_dfs(unsigned int *const err,    Tree_node *const root,
     assert(node != nullptr);
     assert(root != nullptr);
 
-    if (node->left ) Tree_verify_dfs(err, root, node->left );
-    if (node->right) Tree_verify_dfs(err, root, node->right);
+    if (L(node)) Tree_verify_dfs(err, root, L(node) );
+    if (R(node)) Tree_verify_dfs(err, root, R(node));
 
     bool is_terminal_node = false;
 
-    if (node->right == nullptr &&
-        node->left  == nullptr   ) is_terminal_node = true;
+    if (R(node) == nullptr &&
+        L(node) == nullptr   ) is_terminal_node = true;
 
-    if (node->prev  == nullptr && node != root) (*err) = (*err) | (1 << NULLPTR_PREV );
-    if (node->left  == nullptr && node->right ) (*err) = (*err) | (1 << NULLPTR_LEFT );
-    if (node->right == nullptr && node->left  ) (*err) = (*err) | (1 << NULLPTR_RIGHT);
+    if (P(node) == nullptr && node != root) (*err) = (*err) | (1 << NULLPTR_PREV );
+    if (L(node) == nullptr && R(node)     ) (*err) = (*err) | (1 << NULLPTR_LEFT );
+    if (R(node) == nullptr && L(node)     ) (*err) = (*err) | (1 << NULLPTR_RIGHT);
 
     if (node->type  == NODE_UNDEF)
     {
@@ -269,13 +269,13 @@ void node_op_ctor(Tree_node *const node,    Tree_node *const  left,
                                             Tree_node *const  prev,
                                             TYPE_OP          value)
 {
-    node->type     = NODE_OP;
+    node->type = NODE_OP;
 
-    node->left     =    left;
-    node->right    =   right;
-    node->prev     =    prev;
+    L(node)    =    left;
+    R(node)    =   right;
+    P(node)    =    prev;
 
-    node->value.op =   value;
+    op(node)   =   value;
 }
 
 void node_num_ctor(Tree_node *const node,   Tree_node *const prev,
@@ -283,34 +283,34 @@ void node_num_ctor(Tree_node *const node,   Tree_node *const prev,
 {
     assert(node != nullptr);
 
-    node->type      = NODE_NUM;
+    node->type = NODE_NUM;
     
-    node->left      =  nullptr;
-    node->right     =  nullptr;
-    node->prev      =     prev;
+    L(node)    =  nullptr;
+    R(node)    =  nullptr;
+    P(node)    =     prev;
 
-    node->value.dbl =    value;
+    dbl(node)  =    value;
 }
 
 void node_var_ctor(Tree_node *const node, Tree_node *const prev)
 {
     assert(node != nullptr);
 
-    node->type      = NODE_VAR;
+    node->type = NODE_VAR;
     
-    node->left      =  nullptr;
-    node->right     =  nullptr;
-    node->prev      =     prev;
+    L(node)    =  nullptr;
+    R(node)    =  nullptr;
+    P(node)    =     prev;
 
-    node->value.var =      "x";
+    var(node)  =      "x";
 }
 
 void node_undef_ctor(Tree_node *const node, Tree_node *const prev)
 {
     assert (node != nullptr);
 
-   *node       = default_node;
-    node->prev =         prev;
+    * node  = default_node;
+    P(node) =         prev;
 }
 
 /*_____________________________________________________________________*/
@@ -406,8 +406,8 @@ static void dfs_dtor(Tree_node *const node)
 {
     assert(node != nullptr);
 
-    if (node->left  != nullptr) dfs_dtor(node->left );
-    if (node->right != nullptr) dfs_dtor(node->right);
+    if (L(node) != nullptr) dfs_dtor(L(node) );
+    if (R(node) != nullptr) dfs_dtor(R(node));
 
     node_dtor(node);
 }
@@ -496,11 +496,11 @@ static bool push_next_node(Tree_node **node, Tree_node *const root)
         return true;
     }
 
-    if ((*node)->left != nullptr)
+    if (L(*node) != nullptr)
     {
-        if ((*node)->right->type == NODE_UNDEF)
+        if (R(*node)->type == NODE_UNDEF)
         {
-            *node = (*node)->right;
+            *node = R(*node);
             return true;
         }
         else
@@ -510,20 +510,20 @@ static bool push_next_node(Tree_node **node, Tree_node *const root)
         }
     }
 
-    (*node)->left  = new_node_undef(*node);
-    (*node)->right = new_node_undef(*node);
+    L(*node) = new_node_undef(*node);
+    R(*node) = new_node_undef(*node);
     
-    if ((*node)->left  == nullptr ||
-        (*node)->right == nullptr)
+    if (L(*node) == nullptr ||
+        R(*node) == nullptr)
     {
-        log_free((*node)->left );
-        log_free((*node)->right);
+        log_free(L(*node));
+        log_free(R(*node));
 
         log_error("Can't create new node.\n");
         return false;
     }
 
-    *node = (*node)->left;
+    *node = L(*node);
     return true;
 }
 
@@ -538,7 +538,7 @@ static bool push_prev_node(Tree_node **node, Tree_node *const root)
         return false;
     }
 
-   *node = (*node)->prev;
+   *node = P(*node);
    return true;
 }
 
@@ -552,8 +552,8 @@ static bool put_dbl(Tree_node *const node,  bool e_val, const char *data    ,
         log_error("Can't put double-value in nullptr-node.\n");
         return false;
     }
-    if (node->left  != nullptr ||
-        node->right != nullptr)
+    if (L(node) != nullptr ||
+        R(node) != nullptr)
     {
         log_error("Can't put double-number in non-terminal node.\n");
         return false;
@@ -611,8 +611,8 @@ static bool put_var(Tree_node *const node)
         log_error("Can't put variable in nullptr-node.\n");
         return false;
     }
-    if (node->left  != nullptr ||
-        node->right != nullptr)
+    if (L(node) != nullptr ||
+        R(node) != nullptr)
     {
         log_error("Can't put variable in non-terminal mode");
         return false;
@@ -636,8 +636,8 @@ static bool put_op(Tree_node *const node, const char *data     ,
         log_error("Can't put possible operation in nullptr-node.\n");
         return false;
     }
-    if (node->left  == nullptr ||
-        node->right == nullptr)
+    if (L(node) == nullptr ||
+        R(node) == nullptr)
     {
         log_error("Can't put possible operation in terminal node.\n");
         return false;
@@ -705,7 +705,7 @@ static void Tree_optimize_execute(Tree_node **node)
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
     {
-        log_message("node->op_type = %d\n\n", (*node)->value.op);
+        log_message("node->op_type = %d\n\n", op(*node));
     }
     else log_message("\n");
     */
@@ -713,8 +713,8 @@ static void Tree_optimize_execute(Tree_node **node)
 
     if ((*node)->type != NODE_OP) return;
 
-    Tree_optimize_execute(&((*node)->left ));
-    Tree_optimize_execute(&((*node)->right));
+    Tree_optimize_execute(&(L(*node)));
+    Tree_optimize_execute(&(R(*node)));
 
     if (Tree_optimize_numbers(*node)) return;
     if (Tree_optimize_add_main(node)) return;
@@ -743,16 +743,16 @@ static bool Tree_optimize_numbers(Tree_node *node)
     */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    if (node->left ->type == NODE_NUM &&
-        node->right->type == NODE_NUM)
+    if (L(node)->type == NODE_NUM &&
+        R(node)->type == NODE_NUM)
     {
-        double val_left  = node->left ->value.dbl;
-        double val_right = node->right->value.dbl;
+        double val_left  = L(node) ->value.dbl;
+        double val_right = R(node)->value.dbl;
 
-        node_dtor(node->left );
-        node_dtor(node->right);
+        node_dtor(L(node));
+        node_dtor(R(node));
 
-        num_ctor(node, Tree_counter(val_left, val_right, node->value.op));
+        num_ctor(node, Tree_counter(val_left, val_right, op(node)));
         return true;
     }
     return false;
@@ -799,22 +799,22 @@ static bool Tree_optimize_add_main(Tree_node **node)
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
     {
-        log_message("node->op_type = %d\n\n", (*node)->value.op);
+        log_message("node->op_type = %d\n\n", op(*node));
     }
     else log_message("\n");
     */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    if ((*node)->value.op != OP_ADD) return false;
+    if (op(*node) != OP_ADD) return false;
 
-    if ((*node)->left ->type == NODE_NUM && approx_equal(0, (*node)->left ->value.dbl))
+    if (L(*node)->type == NODE_NUM && approx_equal(0, dbl(L(*node))))
     {
-        Tree_optimize_all(node, &((*node)->left ), &((*node)->right));
+        Tree_optimize_all(node, &(L(*node)), &(R(*node)));
         return true;
     }
-    if ((*node)->right->type == NODE_NUM && approx_equal(0, (*node)->right->value.dbl))
+    if (R(*node)->type == NODE_NUM && approx_equal(0, dbl(R(*node))))
     {
-        Tree_optimize_all(node, &((*node)->right), &((*node)->left ));
+        Tree_optimize_all(node, &(R(*node)), &(L(*node)));
         return true;
     }
 
@@ -833,17 +833,17 @@ static bool Tree_optimize_sub_main(Tree_node **node)
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
     {
-        log_message("node->op_type = %d\n\n", (*node)->value.op);
+        log_message("node->op_type = %d\n\n", op(*node));
     }
     else log_message("\n");
     */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    if ((*node)->value.op != OP_SUB) return false;
+    if (op(*node) != OP_SUB) return false;
 
-    if ((*node)->right->type == NODE_NUM && approx_equal(0, (*node)->right->value.dbl))
+    if (R(*node)->type == NODE_NUM && approx_equal(0, dbl(R(*node))))
     {
-        Tree_optimize_all(node, &((*node)->right), &((*node)->left));
+        Tree_optimize_all(node, &(R(*node)), &(L(*node)));
         return true;
     }
     return false;
@@ -851,8 +851,8 @@ static bool Tree_optimize_sub_main(Tree_node **node)
 
 static bool Tree_optimize_mul_main(Tree_node **node)
 {
-    assert( node         != nullptr);
-    assert(*node         != nullptr);
+    assert(  node        != nullptr);
+    assert( *node        != nullptr);
     assert((*node)->type == NODE_OP);
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -861,32 +861,32 @@ static bool Tree_optimize_mul_main(Tree_node **node)
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
     {
-        log_message("node->op_type = %d\n\n", (*node)->value.op);
+        log_message("node->op_type = %d\n\n", op(*node));
     }
     else log_message("\n");
     */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    if ((*node)->value.op != OP_MUL) return false;
+    if (op(*node) != OP_MUL) return false;
 
-    if (((*node)->right->type == NODE_NUM && approx_equal(0, (*node)->right->value.dbl)) ||
-        ((*node)->left ->type == NODE_NUM && approx_equal(0, (*node)->left ->value.dbl)))
+    if ((R(*node)->type == NODE_NUM && approx_equal(0, dbl(R(*node)))) ||
+        (L(*node)->type == NODE_NUM && approx_equal(0, dbl(L(*node)))))
     {
-        Tree_dtor((*node)->left );
-        Tree_dtor((*node)->right);
+        Tree_dtor(L(*node) );
+        Tree_dtor(R(*node));
 
         num_ctor(*node, 0);
         return true;
     }
 
-    if ((*node)->right->type == NODE_NUM && approx_equal(1, (*node)->right->value.dbl))
+    if (R(*node)->type == NODE_NUM && approx_equal(1, dbl(R(*node))))
     {
-        Tree_optimize_all(node, &((*node)->right), &((*node)->left));
+        Tree_optimize_all(node, &(R(*node)), &(L(*node)));
         return true;
     }
-    if ((*node)->left ->type == NODE_NUM && approx_equal(1, (*node)->left-> value.dbl))
+    if (L(*node)->type == NODE_NUM && approx_equal(1, dbl(L(*node))))
     {
-        Tree_optimize_all(node, &((*node)->left ), &((*node)->right));
+        Tree_optimize_all(node, &(L(*node)), &(R(*node)));
         return true;
     }
     return false;
@@ -904,26 +904,26 @@ static bool Tree_optimize_div_main(Tree_node **node)
     log_message("\nnode->type = %d\n", (*node)->type);
     if ((*node)->type == NODE_OP)
     {
-        log_message("node->op_type = %d\n\n", (*node)->value.op);
+        log_message("node->op_type = %d\n\n", op(*node));
     }
     else log_message("\n");
     */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    if ((*node)->value.op != OP_DIV) return false;
+    if (op(*node) != OP_DIV) return false;
 
-    if ((*node)->left->type == NODE_NUM && approx_equal(0, (*node)->left->value.dbl))
+    if (L(*node)->type == NODE_NUM && approx_equal(0, dbl(L(*node))))
     {
-        Tree_dtor((*node)->left );
-        Tree_dtor((*node)->right);
+        Tree_dtor(L(*node));
+        Tree_dtor(R(*node));
 
         num_ctor(*node, 0);
         return true;
     }
 
-    if ((*node)->right->type == NODE_NUM && approx_equal(1, (*node)->right->value.dbl))
+    if (R(*node)->type == NODE_NUM && approx_equal(1, dbl(R(*node))))
     {
-        Tree_optimize_all(node, &((*node)->right), &((*node)->left));
+        Tree_optimize_all(node, &(R(*node)), &(L(*node)));
         return true;
     }
     return false;
@@ -935,29 +935,29 @@ static bool Tree_optimize_pow_main(Tree_node **node)
     assert( *node        != nullptr);
     assert((*node)->type == NODE_OP);
 
-    if ((*node)->value.op != OP_POW) return false;
+    if (op(*node) != OP_POW) return false;
 
-    if ((*node)->left->type == NODE_NUM && approx_equal(1, (*node)->left->value.dbl))
+    if (L(*node)->type == NODE_NUM && approx_equal(1, dbl(L(*node))))
     {
-        Tree_dtor((*node)->left );
-        Tree_dtor((*node)->right);
+        Tree_dtor(L(*node) );
+        Tree_dtor(R(*node));
 
         num_ctor(*node, 1);
         return true;
     }
 
-    if ((*node)->right->type == NODE_NUM && approx_equal(0, (*node)->right->value.dbl))
+    if (R(*node)->type == NODE_NUM && approx_equal(0, dbl(R(*node))))
     {
-        Tree_dtor((*node)->left );
-        Tree_dtor((*node)->right);
+        Tree_dtor(L(*node));
+        Tree_dtor(R(*node));
 
         num_ctor(*node, 1);
         return true;
     }
 
-    if ((*node)->right->type == NODE_NUM && approx_equal(1, (*node)->right->value.dbl))
+    if (R(*node)->type == NODE_NUM && approx_equal(1, dbl(R(*node))))
     {
-        Tree_optimize_all(node, &((*node)->right), &((*node)->left));
+        Tree_optimize_all(node, &(R(*node)), &(L(*node)));
         return true;
     }
     return false;
@@ -981,13 +981,13 @@ static void Tree_optimize_all(Tree_node **node, Tree_node **null_son, Tree_node 
     log_message("\nnode: %p\n", *node);
     log_message("null: %p\n", *null_son);
     log_message("good: %p\n", *good_son);
-    log_message("(*node)->prev: %p\n", (*node)->prev);
+    log_message("P(*node): %p\n", P(*node));
 
-    log_message("\nnode->op_type  = %d \n", (*node)->value.op);
+    log_message("\nnode->op_type  = %d \n", op(*node));
     log_message("null_son->num  = %lg\n", (*null_son)->value.dbl);
     log_message("good_son->type = %d \n", (*good_son)->type);
     
-    Tree_dump_graphviz((*node)->prev);
+    Tree_dump_graphviz(P(*node));
     */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -997,15 +997,15 @@ static void Tree_optimize_all(Tree_node **node, Tree_node **null_son, Tree_node 
     /*
     log_message("  node       : %p\n",  node);
     log_message("(*node)      : %p\n", *node);
-    log_message("(*node)->prev: %p\n\n", (*node)->prev);
+    log_message("P(*node): %p\n\n", P(*node));
     */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    if ((*node)->prev == nullptr) // change the root of the tree
+    if (P(*node) == nullptr) // change the root of the tree
     {
         (*node) = *good_son;
-        node_dtor((*node)->prev);
-        (*node)->prev = nullptr;
+        node_dtor(P(*node));
+        P(*node) = nullptr;
 
         return;
     }
@@ -1022,7 +1022,7 @@ static void Tree_optimize_all(Tree_node **node, Tree_node **null_son, Tree_node 
     
     //delete the "node" from the tree and rehang the "good_son"
 
-    if ((*node)->prev->left == (*node))
+    if (P(*node)->left == (*node))
     {
         (*node    )->prev->left  =  *good_son;
         (*good_son)->prev        = (*node    )->prev;
@@ -1032,7 +1032,7 @@ static void Tree_optimize_all(Tree_node **node, Tree_node **null_son, Tree_node 
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         /*
         log_message("else case\n");
-        log_message("%p\n", &((*node)->prev->right));
+        log_message("%p\n", &(P(*node)->right));
         log_message("%p\n\n", &(*(**node).prev).right);
         */
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -1043,7 +1043,7 @@ static void Tree_optimize_all(Tree_node **node, Tree_node **null_son, Tree_node 
         /*
         log_message("  node       : %p\n",  node);
         log_message("(*node)      : %p\n", *node);
-        log_message("(*node)->prev: %p\n\n", (*node)->prev);
+        log_message("P(*node): %p\n\n", P(*node));
         */
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         
@@ -1053,15 +1053,15 @@ static void Tree_optimize_all(Tree_node **node, Tree_node **null_son, Tree_node 
         /*
         log_message("  node       : %p\n",  node);
         log_message("(*node)      : %p\n", *node);
-        log_message("(*node)->prev: %p\n\n", (*node)->prev);
+        log_message("P(*node): %p\n\n", P(*node));
         */
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     /*
-    log_message("(*node)->prev: %p\n", (*node)->prev);
-    Tree_dump_graphviz((*node)->prev);
+    log_message("P(*node): %p\n", P(*node));
+    Tree_dump_graphviz(P(*node));
     */
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     
@@ -1109,9 +1109,9 @@ static Tree_node *diff_execute(Tree_node *const node)
 
     switch(node->type)
     {
-        case NODE_NUM  : return new_node_num(0, nullptr);
+        case NODE_NUM  : return Nul;
         
-        case NODE_VAR  : return new_node_num(1, nullptr);
+        case NODE_VAR  : return Num(1);
         
         case NODE_OP   : return diff_op_case(node);
         
@@ -1130,32 +1130,32 @@ static Tree_node *diff_op_case(Tree_node *const node)
     assert(node       != nullptr);
     assert(node->type == NODE_OP);
 
-    switch(node->value.op)
+    switch(op(node))
     {
         case OP_ADD : return Add(DL, DR);
         case OP_SUB : return Sub(DL, DR);
 
         case OP_MUL : return Add(Mul(DL, CR), Mul(CL, DR));
-        case OP_DIV : return Div(Sub(Mul(DL, CR), Mul(CL, DR)), Pow(CR, new_node_num(2, nullptr)));
+        case OP_DIV : return Div(Sub(Mul(DL, CR), Mul(CL, DR)), Pow(CR, Num(2)));
 
         case OP_SIN : return Mul(Cos(CL, CR), DR);
         case OP_COS : return Mul(Sub(Nul, Sin(CL, CR)), DR);
-        case OP_TAN : return Div(DR, Pow(Cos(CL, CR), new_node_num(2, nullptr)));
+        case OP_TAN : return Div(DR, Pow(Cos(CL, CR), Num(2)));
 
         case OP_LOG : return Div(DR, CR);
 
         case OP_POW : return diff_op_pow(node);
 
-        case OP_SQRT: return Div(DR, Mul(new_node_num(2, nullptr), Sqrt(CL, CR)));
+        case OP_SQRT: return Div(DR, Mul(Num(2), Sqrt(CL, CR)));
 
         case OP_SH  : return Mul(Ch(CL, CR), DR);
         case OP_CH  : return Mul(Sh(CL, CR), DR);
 
-        case OP_ASIN: return         Div(DR, Sqrt(Nul, Sub(new_node_num(1, nullptr), Pow(CR, new_node_num(2, nullptr)))));
-        case OP_ACOS: return Sub(0 , Div(DR, Sqrt(Nul, Sub(new_node_num(1, nullptr), Pow(CR, new_node_num(2, nullptr))))));
-        case OP_ATAN: return Div(DR,                   Add(new_node_num(1, nullptr), Pow(CR, new_node_num(2, nullptr))));
+        case OP_ASIN: return         Div(DR, Sqrt(Nul, Sub(Num(1), Pow(CR, Num(2)))));
+        case OP_ACOS: return Sub(0 , Div(DR, Sqrt(Nul, Sub(Num(1), Pow(CR, Num(2))))));
+        case OP_ATAN: return Div(DR,                   Add(Num(1), Pow(CR, Num(2))));
 
-        default     : log_error      ("default case in diff_execute() in TYPE-OP-switch: op_type = %d.\n", node->value.op);
+        default     : log_error      ("default case in diff_execute() in TYPE-OP-switch: op_type = %d.\n", op(node));
                       Tree_dump_graphviz(node);
                       assert(false && "default case in diff_execute() in TYPE_OP-switch");
                       return nullptr;
@@ -1167,10 +1167,10 @@ static Tree_node *diff_op_pow(Tree_node *const node)
 {
     assert(node           != nullptr);
     assert(node->type     == NODE_OP);
-    assert(node->value.op ==  OP_POW);
+    assert(op(node) ==  OP_POW);
 
-    if (node->left ->type == NODE_NUM) return Mul(Pow(CL, CR), Mul(Log(Nul, CL), DR));
-    if (node->right->type == NODE_NUM) return Mul(Pow(CL, DropPow(node->right->value.dbl)), Mul(CR, DL));
+    if (L(node) ->type == NODE_NUM) return Mul(Pow(CL, CR), Mul(Log(Nul, CL), DR));
+    if (R(node)->type == NODE_NUM) return Mul(Pow(CL, Num(dbl(R(node))-1)), Mul(CR, DL));
     
     return Mul(Pow(CL, CR), Add(Div(Mul(CR, DL), CL), Mul(DR, Log(Nul, CL))));
 }
@@ -1188,10 +1188,10 @@ static void diff_prev_init(Tree_node *diff_node, Tree_node *prev)
 {
     assert(diff_node);
 
-    diff_node->prev = prev;
+    P(diff_node) = prev;
 
-    if (diff_node->left ) diff_prev_init(diff_node->left , diff_node);
-    if (diff_node->right) diff_prev_init(diff_node->right, diff_node);
+    if (L(diff_node)) diff_prev_init(L(diff_node), diff_node);
+    if (R(diff_node)) diff_prev_init(R(diff_node), diff_node);
 }
 
 static Tree_node *Tree_copy(Tree_node *cp_from)
@@ -1200,11 +1200,11 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 
     switch (cp_from->type)
     {
-        case NODE_NUM   : return new_node_num(cp_from->value.dbl, nullptr);
+        case NODE_NUM   : return Num(dbl(cp_from));
 
         case NODE_VAR   : return new_node_var(nullptr);
 
-        case NODE_OP    : return new_node_op(cL(cp_from), cR(cp_from), nullptr, cp_from->value.op);
+        case NODE_OP    : return new_node_op (cL(cp_from), cR(cp_from), nullptr, op(cp_from));
 
         case NODE_UNDEF :
         default         : log_error      ("default case in Tree_copy() in TYPE-NODE-switch: node_type = %d.\n", cp_from->type);
@@ -1275,13 +1275,13 @@ static void Tree_dump_graphviz_dfs(Tree_node *node, int *const node_number, FILE
     Tree_node_describe(node, node_number, stream);
 
     int number_left  = *node_number;
-    if (node->left)  Tree_dump_graphviz_dfs(node->left, node_number, stream);
+    if (L(node))  Tree_dump_graphviz_dfs(L(node), node_number, stream);
 
     int number_right = *node_number;
-    if (node->right) Tree_dump_graphviz_dfs(node->right, node_number, stream);
+    if (R(node)) Tree_dump_graphviz_dfs(R(node), node_number, stream);
 
-    if (node->left ) fprintf(stream, "node%d->node%d[color=\"black\"]\n", number_cur, number_left );
-    if (node->right) fprintf(stream, "node%d->node%d[color=\"black\"]\n", number_cur, number_right);
+    if (L(node)) fprintf(stream, "node%d->node%d[color=\"black\"]\n", number_cur, number_left );
+    if (R(node)) fprintf(stream, "node%d->node%d[color=\"black\"]\n", number_cur, number_right);
 }
 
 static void Tree_node_describe(Tree_node *node, int *const node_number, FILE *const stream)
@@ -1306,13 +1306,13 @@ static void Tree_node_describe(Tree_node *node, int *const node_number, FILE *co
         case NODE_NUM:      color =  DARK_GREEN;
                         fillcolor = LIGHT_GREEN;
                         node_type =  "NODE_NUM";
-                        sprintf(value, "dbl: %lg", node->value.dbl);
+                        sprintf(value, "dbl: %lg", dbl(node));
                         break;
 
         case NODE_OP:       color =  DARK_ORANGE;
                         fillcolor = LIGHT_ORANGE;
                         node_type =    "NODE_OP";
-                        sprintf(value, "op: %s", op_names[node->value.op]);
+                        sprintf(value, "op: %s", op_names[op(node)]);
                         break;
 
         case NODE_UNDEF:    color =    DARK_RED ;
@@ -1348,11 +1348,11 @@ static void print_Tree_node(Tree_node *node, int *const node_number, FILE *const
                                     graphviz_color_names[color],
                                                       graphviz_color_names[fillcolor],
                                                                            node,
-                                                                                          node->prev,
+                                                                                          P(node),
                                                                                                          node_type,
                                                                                                                  value,
-                                                                                                                              node->left,
-                                                                                                                                           node->right);
+                                                                                                                              L(node),
+                                                                                                                                           R(node));
     *node_number = *node_number + 1;
 }
 
@@ -1381,11 +1381,11 @@ static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
 
     if (bracket) log_message("(");
 
-    if      (node->type     == NODE_NUM ) dump_txt_num(node);
-    else if (node->type     == NODE_VAR ) log_message ("x");
+    if      (node->type == NODE_NUM ) dump_txt_num(node);
+    else if (node->type == NODE_VAR ) log_message ("x");
     else
     {
-        switch(node->value.op)
+        switch(op(node))
         {
             case OP_SIN :
             case OP_COS :
@@ -1400,12 +1400,12 @@ static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
                           break;
             
             default    : {
-                            Tree_dump_txt_dfs(node->left, !(node->left->type != NODE_OP ||  op_priority[node->left->value.op] >= 
-                                                                                            op_priority[node->      value.op]));
-                            log_message(op_names[node->value.op]);
+                            Tree_dump_txt_dfs(L(node), !(L(node)->type != NODE_OP ||    op_priority[op(L(node))] >= 
+                                                                                        op_priority[op(node)]));
+                            log_message(op_names[op(node)]);
 
-                            Tree_dump_txt_dfs(node->right, !(node->right->type != NODE_OP || op_priority[node->right->value.op] >
-                                                                                             op_priority[node->       value.op]));
+                            Tree_dump_txt_dfs(R(node), !(R(node)->type != NODE_OP ||    op_priority[op(R(node))] >
+                                                                                        op_priority[op(node)]));
                             break;
                          }
         }
@@ -1419,9 +1419,9 @@ static void dump_txt_num(Tree_node *node)
     assert(node       !=  nullptr);
     assert(node->type == NODE_NUM);
 
-    if (approx_equal(e, node->value.dbl)) log_message("e");
-    else if (node->value.dbl >= 0)        log_message("%lg"  , node->value.dbl);
-    else                                  log_message("(%lg)", node->value.dbl);
+    if (approx_equal(e, dbl(node))) log_message("e");
+    else if (dbl(node) >= 0)        log_message("%lg"  , dbl(node));
+    else                            log_message("(%lg)", dbl(node));
 }
 
 static void dump_txt_unary(Tree_node *node)
@@ -1429,8 +1429,8 @@ static void dump_txt_unary(Tree_node *node)
     assert(node       != nullptr);
     assert(node->type == NODE_OP);
 
-    log_message(op_names[node->value.op]);
-    Tree_dump_txt_dfs(node->right, true);
+    log_message      (op_names[op(node)]);
+    Tree_dump_txt_dfs(R(node), true);
 }
 
 /*_____________________________________________________________________*/
@@ -1511,10 +1511,10 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
 
     if      (node->type     == NODE_NUM  ) dump_tex_num(node, stream);
     else if (node->type     == NODE_VAR  ) fprintf(stream, " x");
-    else if (node->value.op ==   OP_SUB && Tree_dump_tex_op_sub(node, stream));
+    else if (op(node)       ==   OP_SUB && Tree_dump_tex_op_sub(node, stream));
     else
     {
-        switch (node->value.op)
+        switch (op(node))
         {
             case OP_DIV: Tree_dump_tex_op_div(node, stream);
                          break;
@@ -1537,14 +1537,12 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
                          break;
 
             default     : {
-                            Tree_dump_tex_dfs(node->left, !(node->left->type != NODE_OP ||  op_priority[node->left->value.op] >= 
-                                                                                            op_priority[node->      value.op]),
-                                                                                            stream);
-                            fprintf(stream, op_names[node->value.op]);
+                            Tree_dump_tex_dfs(L(node), !(L(node)->type != NODE_OP ||    op_priority[op(L(node))] >= 
+                                                                                        op_priority[op(node)]), stream);
+                            fprintf(stream, op_names[op(node)]);
 
-                            Tree_dump_tex_dfs(node->right, !(node->right->type != NODE_OP || op_priority[node->right->value.op] >
-                                                                                             op_priority[node->       value.op]),
-                                                                                             stream);
+                            Tree_dump_tex_dfs(R(node), !(R(node)->type != NODE_OP ||    op_priority[op(R(node))] >
+                                                                                        op_priority[op(node)]), stream);
                             break;
                           }
         }
@@ -1558,60 +1556,60 @@ static void Tree_dump_tex_op_unary(Tree_node *node, FILE *const stream)
     assert(stream         != nullptr );
     assert(node->type     == NODE_OP );
 
-    fprintf          (stream, " %s", op_names[node->value.op]);
-    Tree_dump_tex_dfs(node->right, true, stream);
+    fprintf          (stream, " %s", op_names[op(node)]);
+    Tree_dump_tex_dfs(R(node), true, stream);
 }
 
 static void Tree_dump_tex_op_sqrt(Tree_node *node, FILE *const stream)
 {
-    assert(node           != nullptr);
-    assert(stream         != nullptr);
-    assert(node->type     == NODE_OP);
-    assert(node->value.op == OP_SQRT);
+    assert(node       != nullptr);
+    assert(stream     != nullptr);
+    assert(node->type == NODE_OP);
+    assert(op(node)   == OP_SQRT);
 
     fprintf          (stream, "\\sqrt{");
-    Tree_dump_tex_dfs(node->right, false, stream);
+    Tree_dump_tex_dfs(R(node), false, stream);
     fprintf          (stream, "}");
 }
 
 static void Tree_dump_tex_op_div(Tree_node *node, FILE *const stream)
 {
-    assert(node           != nullptr);
-    assert(stream         != nullptr);
-    assert(node->type     == NODE_OP);
-    assert(node->value.op == OP_DIV );
+    assert(node       != nullptr);
+    assert(stream     != nullptr);
+    assert(node->type == NODE_OP);
+    assert(op(node)   == OP_DIV );
 
     fprintf          (stream, "\\frac{");
-    Tree_dump_tex_dfs(node->left , false, stream);
+    Tree_dump_tex_dfs(L(node) , false, stream);
     fprintf          (stream, "}{");
-    Tree_dump_tex_dfs(node->right, false, stream);
+    Tree_dump_tex_dfs(R(node), false, stream);
     fprintf          (stream, "}");
 }
 
 static void Tree_dump_tex_op_pow(Tree_node *node, FILE *const stream)
 {
-    assert(node           != nullptr);
-    assert(stream         != nullptr);
-    assert(node->type     == NODE_OP);
-    assert(node->value.op ==  OP_POW);
+    assert(node       != nullptr);
+    assert(stream     != nullptr);
+    assert(node->type == NODE_OP);
+    assert(op(node)   ==  OP_POW);
 
-    Tree_dump_tex_dfs(node->left, false, stream);
+    Tree_dump_tex_dfs(L(node), false, stream);
     fprintf          (stream, "^{");
-    Tree_dump_tex_dfs(node->right, false, stream);
+    Tree_dump_tex_dfs(R(node), false, stream);
     fprintf          (stream, "}");
 }
 
 static bool Tree_dump_tex_op_sub(Tree_node *node, FILE *const stream)
 {
-    assert(node           != nullptr);
-    assert(stream         != nullptr);
-    assert(node->type     == NODE_OP);
-    assert(node->value.op == OP_SUB );
+    assert(node       != nullptr);
+    assert(stream     != nullptr);
+    assert(node->type == NODE_OP);
+    assert(op(node)   == OP_SUB );
 
-    if (node->left->type == NODE_NUM && approx_equal(0, node->left->value.dbl))
+    if (L(node)->type == NODE_NUM && approx_equal(0, dbl(L(node))))
     {
         fprintf(stream, "-");
-        Tree_dump_tex_dfs(node->right, false, stream);
+        Tree_dump_tex_dfs(R(node), false, stream);
         return true;
     }
     return false;
@@ -1622,7 +1620,7 @@ static void dump_tex_num(Tree_node *node, FILE *const stream)
     assert(node       !=  nullptr);
     assert(node->type == NODE_NUM);
 
-    dump_tex_num(node->value.dbl, stream);
+    dump_tex_num(dbl(node), stream);
 }
 
 static void dump_tex_num(const double num, FILE *const stream)
@@ -1759,12 +1757,12 @@ static double dfs_value_in_point(const Tree_node *node, const double x_val)
     assert(node != nullptr);
 
     if (node->type == NODE_VAR) return x_val;
-    if (node->type == NODE_NUM) return node->value.dbl;
+    if (node->type == NODE_NUM) return dbl(node);
 
-    double left  = dfs_value_in_point(node->left , x_val);
-    double right = dfs_value_in_point(node->right, x_val);
+    double left  = dfs_value_in_point(L(node), x_val);
+    double right = dfs_value_in_point(R(node), x_val);
 
-    return Tree_counter(left, right, node->value.op);
+    return Tree_counter(left, right, op(node));
 }
 
 /*_____________________________________________________________________*/
