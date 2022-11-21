@@ -33,7 +33,15 @@
 #define   Sh(left, right) new_node_op (left, right, nullptr, OP_SH  )
 #define   Ch(left, right) new_node_op (left, right, nullptr, OP_CH  )
 
-#define Nul              new_node_num(0,           nullptr          )
-#define DropPow(num)     new_node_num(num - 1,     nullptr          )
+#define Nul               new_node_num(0  ,         nullptr         )
+#define Num(num)          new_node_num(num,         nullptr         )
+
+#define  op(node)      (node)->value.op
+#define dbl(node)      (node)->value.dbl
+#define var(node)      (node)->value.var
+
+#define   L(node)      (node)->left
+#define   R(node)      (node)->right
+#define   P(node)      (node)->prev
 
 #endif //DSL_H
