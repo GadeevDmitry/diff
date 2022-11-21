@@ -36,12 +36,12 @@
 #define Nul               new_node_num(0  ,         nullptr         )
 #define Num(num)          new_node_num(num,         nullptr         )
 
-#define  op(node)      (node)->value.op
-#define dbl(node)      (node)->value.dbl
-#define var(node)      (node)->value.var
+#define  op(node) (node)->value.op
+#define dbl(node) (node)->value.dbl
+#define var(node) (node)->value.var
 
-#define   L(node)      (node)->left
-#define   R(node)      (node)->right
-#define   P(node)      (node)->prev
+#define   l(node) (node)->left
+#define   r(node) (node)->right
+#define   p(node) (node)->prev
 
 #endif //DSL_H
