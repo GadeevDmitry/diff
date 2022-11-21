@@ -19,6 +19,7 @@ enum TYPE_OP
     OP_COS      ,
     OP_POW      ,
     OP_LOG      ,
+    OP_SQRT     ,
 };
 
 struct Tree_node
@@ -64,6 +65,8 @@ void        Tree_dtor           (Tree_node *const root);
 bool        Tree_parsing_main   (Tree_node *const root, const char *file);
 void        Tree_optimize_main  (Tree_node **     root);
 Tree_node  *diff_main           (Tree_node **     root);
+
+double      get_value_in_point  (Tree_node *root, const double x_val);
 
 void        Tree_dump_graphviz  (Tree_node *root);
 void        Tree_dump_txt       (Tree_node *root);

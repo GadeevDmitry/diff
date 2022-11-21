@@ -56,6 +56,8 @@ static Tree_node   *diff_op_pow             (Tree_node *const node);
 static void         diff_prev_init          (Tree_node *diff_node, Tree_node *prev);
 static Tree_node   *Tree_copy               (Tree_node *cp_from);
 
+static double       dfs_value_in_point      (const Tree_node *node, const double x_val);
+
 static void         Tree_dump_graphviz_dfs  (Tree_node *node, int *const node_number, FILE *const stream);
 static void         Tree_node_describe      (Tree_node *node, int *const node_number, FILE *const stream);
 static void         print_Tree_node         (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
@@ -64,11 +66,12 @@ static void         print_Tree_node         (Tree_node *node, int *const node_nu
                                                                                                             const char        *value);
 static void         Tree_dump_txt_dfs           (Tree_node *node, bool bracket);
 static void         dump_txt_num                (Tree_node *node);
-static void         dump_txt_sin_cos_log        (Tree_node *node);
+static void         dump_txt_unary              (Tree_node *node);
 
 static void         Tree_dump_tex_system        (char *const dump_tex, char *const dump_pdf, const int cur);
 static void         Tree_dump_tex_dfs           (Tree_node *node, bool bracket, FILE *const stream);
-static void         Tree_dump_tex_op_sin_cos_log(Tree_node *node, FILE *const stream);
+static void         Tree_dump_tex_op_unary      (Tree_node *node, FILE *const stream);
+static void         Tree_dump_tex_op_sqrt       (Tree_node *node, FILE *const stream);
 static void         Tree_dump_tex_op_div        (Tree_node *node, FILE *const stream);
 static void         Tree_dump_tex_op_pow        (Tree_node *node, FILE *const stream);
 static bool         Tree_dump_tex_op_sub        (Tree_node *node, FILE *const stream);
@@ -97,6 +100,7 @@ static const int op_priority[] =
     4   , // OP_COS
     3   , // OP_POW
     4   , // OP_LOG
+    4   , // OP_SQRT
 };
 
 static const char *op_names[] =
@@ -109,6 +113,7 @@ static const char *op_names[] =
     "cos"   , // OP_COS
     "^"     , // OP_POW
     "ln"    , // OP_LOG
+    "sqrt"  , // OP_SQRT
 };
 
 static const int VALUE_SIZE = 100;
@@ -738,18 +743,19 @@ static double Tree_counter(const double left, const double right, TYPE_OP op)
 {
     switch (op)
     {
-        case OP_ADD: return left + right;
-        case OP_SUB: return left - right;
-        case OP_MUL: return left * right;
-        case OP_DIV: return left / right;
-        case OP_SIN: return sin   (right);
-        case OP_COS: return cos   (right);
-        case OP_POW: return pow   (left, right);
-        case OP_LOG: return log   (right);
+        case OP_ADD : return left + right;
+        case OP_SUB : return left - right;
+        case OP_MUL : return left * right;
+        case OP_DIV : return left / right;
+        case OP_SIN : return sin   (right);
+        case OP_COS : return cos   (right);
+        case OP_POW : return pow   (left, right);
+        case OP_LOG : return log   (right);
+        case OP_SQRT: return sqrt  (right);
 
-        default    : log_error      ("default case in Tree_counter() op-switch: op = %d.\n", op);
-                     assert(false && "default case in Tree_counter() op-switch");
-                     break;
+        default     : log_error      ("default case in Tree_counter() op-switch: op = %d.\n", op);
+                      assert(false && "default case in Tree_counter() op-switch");
+                      break;
     }
     return 0;
 }
@@ -1101,26 +1107,28 @@ static Tree_node *diff_op_case(Tree_node *const node)
 
     switch(node->value.op)
     {
-        case OP_ADD: return Add(DL, DR);
+        case OP_ADD : return Add(DL, DR);
 
-        case OP_SUB: return Sub(DL, DR);
+        case OP_SUB : return Sub(DL, DR);
 
-        case OP_MUL: return Add(Mul(DL, CR), Mul(CL, DR));
+        case OP_MUL : return Add(Mul(DL, CR), Mul(CL, DR));
 
-        case OP_DIV: return Div(Sub(Mul(DL, CR), Mul(CL, DR)), Mul(CR, CR));
+        case OP_DIV : return Div(Sub(Mul(DL, CR), Mul(CL, DR)), Mul(CR, CR));
 
-        case OP_SIN: return Mul(Cos(CL, CR), DR);
+        case OP_SIN : return Mul(Cos(CL, CR), DR);
 
-        case OP_COS: return Mul(Sub(CL, Sin(CL, CR)), DR);
+        case OP_COS : return Mul(Sub(CL, Sin(CL, CR)), DR);
 
-        case OP_LOG: return Div(DR, CR);
+        case OP_LOG : return Div(DR, CR);
 
-        case OP_POW: return diff_op_pow(node);
+        case OP_POW : return diff_op_pow(node);
 
-        default    : log_error      ("default case in diff_execute() in TYPE-OP-switch: op_type = %d.\n", node->value.op);
-                     Tree_dump_graphviz(node);
-                     assert(false && "default case in diff_execute() in TYPE_OP-switch");
-                     return nullptr;
+        case OP_SQRT: return Div(DR, Mul(new_node_num(2, nullptr), Sqrt(CL, CR)));
+
+        default     : log_error      ("default case in diff_execute() in TYPE-OP-switch: op_type = %d.\n", node->value.op);
+                      Tree_dump_graphviz(node);
+                      assert(false && "default case in diff_execute() in TYPE_OP-switch");
+                      return nullptr;
     }
     return nullptr;
 }
@@ -1175,6 +1183,37 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
                           break;
     }
     return nullptr;
+}
+
+/*_____________________________________________________________________*/
+
+double get_value_in_point(Tree_node *root, const double x_val)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (Tree_verify(root) == false)
+    {
+        log_error("Can't get value in the point of invalid tree.\n");
+
+        Tree_dump_graphviz(root);
+        return 0;
+    }
+
+    log_end_header();
+    return dfs_value_in_point(root, x_val);
+}
+
+static double dfs_value_in_point(const Tree_node *node, const double x_val)
+{
+    assert(node != nullptr);
+
+    if (node->type == NODE_VAR) return x_val;
+    if (node->type == NODE_NUM) return node->value.dbl;
+
+    double left  = dfs_value_in_point(node->left , x_val);
+    double right = dfs_value_in_point(node->right, x_val);
+
+    return Tree_counter(left, right, node->value.op);
 }
 
 /*_____________________________________________________________________*/
@@ -1349,9 +1388,10 @@ static void Tree_dump_txt_dfs(Tree_node *node, bool bracket)
     {
         switch(node->value.op)
         {
-            case OP_SIN:
-            case OP_COS:
-            case OP_LOG: dump_txt_sin_cos_log(node);
+            case OP_SIN :
+            case OP_COS :
+            case OP_SQRT:
+            case OP_LOG : dump_txt_unary(node);
                          break;
             
             default    : {
@@ -1379,11 +1419,12 @@ static void dump_txt_num(Tree_node *node)
     else                                  log_message("(%lg)", node->value.dbl);
 }
 
-static void dump_txt_sin_cos_log(Tree_node *node)
+static void dump_txt_unary(Tree_node *node)
 {
     assert(node           != nullptr);
-    assert(node->value.op == OP_SIN ||
-           node->value.op == OP_COS ||
+    assert(node->value.op == OP_SIN  ||
+           node->value.op == OP_COS  ||
+           node->value.op == OP_SQRT ||
            node->value.op == OP_LOG);
 
     log_message(op_names[node->value.op]);
@@ -1476,12 +1517,15 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
             case OP_DIV: Tree_dump_tex_op_div(node, stream);
                          break;
             
-            case OP_SIN:
-            case OP_COS:
-            case OP_LOG: Tree_dump_tex_op_sin_cos_log(node, stream);
-                         break;
+            case OP_SIN :
+            case OP_COS :
+            case OP_LOG : Tree_dump_tex_op_unary(node, stream);
+                          break;
             
-            case OP_POW: Tree_dump_tex_op_pow(node, stream);
+            case OP_SQRT: Tree_dump_tex_op_sqrt(node, stream);
+                          break;
+
+            case OP_POW : Tree_dump_tex_op_pow (node, stream);
                          break;
 
             default     : {
@@ -1500,17 +1544,30 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
     if (bracket) fprintf(stream, ")");
 }
 
-static void Tree_dump_tex_op_sin_cos_log(Tree_node *node, FILE *const stream)
+static void Tree_dump_tex_op_unary(Tree_node *node, FILE *const stream)
+{
+    assert(node           != nullptr );
+    assert(stream         != nullptr );
+    assert(node->type     == NODE_OP );
+    assert(node->value.op == OP_SIN  ||
+           node->value.op == OP_COS  ||
+           node->value.op == OP_SQRT ||
+           node->value.op == OP_LOG  );
+
+    fprintf          (stream, " %s", op_names[node->value.op]);
+    Tree_dump_tex_dfs(node->right, true, stream);
+}
+
+static void Tree_dump_tex_op_sqrt(Tree_node *node, FILE *const stream)
 {
     assert(node           != nullptr);
     assert(stream         != nullptr);
     assert(node->type     == NODE_OP);
-    assert(node->value.op == OP_SIN ||
-           node->value.op == OP_COS ||
-           node->value.op == OP_LOG);
+    assert(node->value.op == OP_SQRT);
 
-    fprintf          (stream, " %s", op_names[node->value.op]);
-    Tree_dump_tex_dfs(node->right, true, stream);
+    fprintf          (stream, "\\sqrt{");
+    Tree_dump_tex_dfs(node->right, false, stream);
+    fprintf          (stream, "}");
 }
 
 static void Tree_dump_tex_op_div(Tree_node *node, FILE *const stream)
