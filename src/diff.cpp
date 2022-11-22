@@ -31,7 +31,7 @@ static bool         is_char_var             (const char c);
 static VAR          get_var_from_char       (const char c);
 
 static bool         push_next_node          (Tree_node **node, Tree_node *const root);
-static bool         push_prev_node          (Tree_node **node, Tree_node *const root);
+static bool         push_prev_node          (Tree_node **node                       );
 
 static bool         put_dbl                 (Tree_node *const node, bool e_val, const char *data    ,
                                                                                 int *const  data_pos);
@@ -549,7 +549,7 @@ static bool Tree_parsing_execute(Tree_node *const root, const char *data     ,
         *data_pos      =  1 + *data_pos ;
 
         if      (cur_char == '('      ) { if (!push_next_node(&cur_node, root             )) return false; }
-        else if (cur_char == ')'      ) { if (!push_prev_node(&cur_node, root             )) return false; }
+        else if (cur_char == ')'      ) { if (!push_prev_node(&cur_node                   )) return false; }
         else if (isdigit(cur_char)    ) { if (!put_dbl       ( cur_node, false, data      ,
                                                                                 data_pos  )) return false; }
         else if (cur_char == 'e'      ) { if (!put_dbl       ( cur_node, true , data      ,
@@ -640,9 +640,8 @@ static bool push_next_node(Tree_node **node, Tree_node *const root)
     return  true;
 }
 
-static bool push_prev_node(Tree_node **node, Tree_node *const root)
+static bool push_prev_node(Tree_node **node)
 {
-    assert(root != nullptr);
     assert(node != nullptr);
 
     if (*node == nullptr)
@@ -650,6 +649,8 @@ static bool push_prev_node(Tree_node **node, Tree_node *const root)
         log_error("Can't get previos node.\n");
         return false;
     }
+   
+   if (getP != nullptr && r(getP) == *node) op_ctor(getP, op(getP));
 
    *node = getP;
    return true;
