@@ -69,6 +69,7 @@ static void         print_Tree_node         (Tree_node *node, int *const node_nu
                                                                                                             GRAPHVIZ_COLOR     color, 
                                                                                                             const char    *node_type,
                                                                                                             const char        *value);
+static void         get_str_tree_vars           (Tree_node *node, char *const str);
 static void         Tree_dump_txt_dfs           (Tree_node *node, bool bracket);
 static void         dump_txt_num                (Tree_node *node);
 static void         dump_txt_unary              (Tree_node *node);
@@ -1449,17 +1450,35 @@ static void print_Tree_node(Tree_node *node, int *const node_number, FILE *const
     assert(node_type != nullptr);
     assert(value     != nullptr);
 
-    fprintf(stream, "node%d[color=\"%s\", fillcolor=\"%s\", label=\"{cur = %p\\n | prev = %p\\n | type = %s\\n | %s | {left = %p | right = %p}}\"]\n",
+    char str_tree_vars[VALUE_SIZE] = {};
+     get_str_tree_vars(node, str_tree_vars);
+
+    fprintf(stream, "node%d[color=\"%s\", fillcolor=\"%s\", label=\"{cur = %p\\n | prev = %p\\n | type = %s\\n | %s | %s | {left = %p | right = %p}}\"]\n",
                         *node_number,
                                     graphviz_color_names[color],
                                                       graphviz_color_names[fillcolor],
                                                                            node,
                                                                                           getP,
                                                                                                          node_type,
-                                                                                                                 value,
-                                                                                                                              getL,
-                                                                                                                                           getR);
+                                                                                                                 str_tree_vars,
+                                                                                                                      value,
+                                                                                                                                   getL,
+                                                                                                                                                getR);
     *node_number = *node_number + 1;
+}
+
+static void get_str_tree_vars(Tree_node *node, char *const str)
+{
+    assert(node != nullptr);
+    assert(str  != nullptr);
+
+    size_t i = 0;
+    for (; i < sizeof(char) * 8; ++i)
+    {
+        if ((1 << i) & TREE_VARS) str[i] = '1';
+        else                      str[i] = '0';
+    }
+    str[i]   = '\0';
 }
 
 /*_____________________________________________________________________*/
