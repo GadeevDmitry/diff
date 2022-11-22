@@ -33,6 +33,9 @@ enum VAR
     X       ,
     Y       ,
     Z       ,
+    DX      ,
+    DY      ,
+    DZ      ,
     ALPHA   ,
     BETA    ,
     GAMMA   ,
@@ -48,7 +51,7 @@ struct Tree_node
     Tree_node *right;
     Tree_node * prev;
 
-    unsigned char tree_vars;
+    unsigned int tree_vars;
 
     union
     {

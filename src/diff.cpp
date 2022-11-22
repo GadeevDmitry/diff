@@ -29,6 +29,7 @@ static bool         Tree_parsing_execute    (Tree_node *const root, const char *
                                                                     int *const  data_pos );
 static bool         is_char_var             (const char c);
 static VAR          get_var_from_char       (const char c);
+static VAR          get_diff_var            (VAR var);
 
 static bool         push_next_node          (Tree_node **node, Tree_node *const root);
 static bool         push_prev_node          (Tree_node **node                       );
@@ -43,21 +44,21 @@ static bool         put_op                  (Tree_node *const node, const char *
                                                                     const int   data_size,
                                                                     int *const  data_pos );
 
-static void         Tree_optimize_execute           (Tree_node **node);
-static bool         Tree_optimize_numbers           (Tree_node *node);
-static double       Tree_counter                    (const double left, const double right, TYPE_OP op);
-static bool         Tree_optimize_add_main          (Tree_node **node);
-static bool         Tree_optimize_sub_main          (Tree_node **node);
-static bool         Tree_optimize_mul_main          (Tree_node **node);
-static bool         Tree_optimize_div_main          (Tree_node **node);
-static bool         Tree_optimize_pow_main          (Tree_node **node);
-static void         Tree_optimize_all               (Tree_node **node, Tree_node **null_son, Tree_node **good_son);
-static void         Tree_vars_update                (Tree_node *const node);
+static void         Tree_optimize_execute   (Tree_node **node);
+static bool         Tree_optimize_numbers   (Tree_node *node);
+static double       Tree_counter            (const double left, const double right, TYPE_OP op);
+static bool         Tree_optimize_add_main  (Tree_node **node);
+static bool         Tree_optimize_sub_main  (Tree_node **node);
+static bool         Tree_optimize_mul_main  (Tree_node **node);
+static bool         Tree_optimize_div_main  (Tree_node **node);
+static bool         Tree_optimize_pow_main  (Tree_node **node);
+static void         Tree_optimize_all       (Tree_node **node, Tree_node **null_son, Tree_node **good_son);
+static void         Tree_vars_update        (Tree_node *const node);
 
-static Tree_node   *diff_execute            (Tree_node *const node, VAR var);
-static Tree_node   *diff_op_var             (Tree_node *const node, VAR var);
-static Tree_node   *diff_op_case            (Tree_node *const node, VAR var);
-static Tree_node   *diff_op_pow             (Tree_node *const node, VAR var);
+static Tree_node   *diff_execute            (Tree_node *const node, VAR var, bool d_mode);
+static Tree_node   *diff_op_var             (Tree_node *const node, VAR var, bool d_mode);
+static Tree_node   *diff_op_case            (Tree_node *const node, VAR var, bool d_mode);
+static Tree_node   *diff_op_pow             (Tree_node *const node, VAR var, bool d_mode);
 static void         diff_prev_init          (Tree_node *diff_node, Tree_node *prev);
 static Tree_node   *Tree_copy               (Tree_node *cp_from);
 
@@ -100,7 +101,7 @@ static const Tree_node default_node =
     nullptr     , // right
     nullptr     , // prev
 
-          0     , // subtree_vars
+          0     , // tree_vars
 
         0.0       // dbl
 };
@@ -148,6 +149,9 @@ static const char *var_names[] =
     "x"         ,
     "y"         ,
     "z"         ,
+    "dx"        ,
+    "dy"        ,
+    "dz"        ,
     "\\alpha"   ,
     "\\beta"    ,
     "\\gamma"   ,
@@ -368,7 +372,7 @@ void node_undef_ctor(Tree_node *const node, Tree_node *const prev)
     assert (node != nullptr);
 
     *node  = default_node;
-    getP      =      prev;
+    getP   =         prev;
 }
 
 //___________________
@@ -501,6 +505,37 @@ static void dfs_dtor(Tree_node *const node)
 
 /*_____________________________________________________________________*/
 
+static bool is_char_var(const char c)
+{
+    return c == 'x' || c == 'y' || c == 'z';
+}
+
+static VAR get_var_from_char(const char c)
+{
+    switch (c)
+    {
+        case 'x': return X;
+        case 'y': return Y;
+        case 'z': return Z;
+        default : assert(false && "default case in get_var_from_char()");
+    }
+    return X;
+}
+
+static VAR get_diff_var(VAR var)
+{
+    switch (var)
+    {
+        case X  : return DX;
+        case Y  : return DY;
+        case Z  : return DZ;
+        default : assert(false && "default case in get_diff_var()");
+    }
+    return DX;
+}
+
+/*_____________________________________________________________________*/
+
 bool Tree_parsing_main(Tree_node *const root, const char *file)
 {
     log_header(__PRETTY_FUNCTION__);
@@ -570,22 +605,6 @@ static bool Tree_parsing_execute(Tree_node *const root, const char *data     ,
     return true;
 }
 
-static bool is_char_var(const char c)
-{
-    return c == 'x' || c == 'y' || c == 'z';
-}
-
-static VAR get_var_from_char(const char c)
-{
-    switch (c)
-    {
-        case 'x': return X;
-        case 'y': return Y;
-        case 'z': return Z;
-        default : assert(false && "default case in get_var_from_char()");
-    }
-    return X;
-}
 
 //___________________
 
@@ -1168,13 +1187,13 @@ Tree_node *diff_main(Tree_node **root, const char *vars)
 
     switch (vars[0])
     {
-        case 'x': diff_root = diff_execute(*root, X);
+        case 'x': diff_root = diff_execute(*root, X, false);
                   break;
-        case 'y': diff_root = diff_execute(*root, Y);
+        case 'y': diff_root = diff_execute(*root, Y, false);
                   break;
-        case 'z': diff_root = diff_execute(*root, Z);
+        case 'z': diff_root = diff_execute(*root, Z, false);
                   break;
-        default : diff_root = Add(diff_execute(*root, X), Add(diff_execute(*root, Y), diff_execute(*root, Z)));
+        default : diff_root = Add(diff_execute(*root, X, true), Add(diff_execute(*root, Y, true), diff_execute(*root, Z, true)));
                   break;
     }
     diff_prev_init(diff_root, nullptr);
@@ -1184,14 +1203,14 @@ Tree_node *diff_main(Tree_node **root, const char *vars)
 
 //_____________________________
 
-#define DL dL(node, var)
-#define DR dR(node, var)
+#define DL dL(node, var, d_mode)
+#define DR dR(node, var, d_mode)
 #define CL cL(node)
 #define CR cR(node)
 
 //_____________________________
 
-static Tree_node *diff_execute(Tree_node *const node, VAR var)
+static Tree_node *diff_execute(Tree_node *const node, VAR var, bool d_mode)
 {
     assert(node != nullptr);
 
@@ -1199,9 +1218,9 @@ static Tree_node *diff_execute(Tree_node *const node, VAR var)
     {
         case NODE_NUM  : return Nul;
         
-        case NODE_VAR  : return diff_op_var (node, var);
+        case NODE_VAR  : return diff_op_var (node, var, d_mode);
         
-        case NODE_OP   : return diff_op_case(node, var);
+        case NODE_OP   : return diff_op_case(node, var, d_mode);
         
         case NODE_UNDEF:
         default        : log_error      ("default case in diff_execute() in TYPE-NODE-switch: node_type = %d.\n", node->type);
@@ -1213,16 +1232,20 @@ static Tree_node *diff_execute(Tree_node *const node, VAR var)
     return nullptr;
 }
 
-static Tree_node *diff_op_var(Tree_node *const node, VAR var)
+static Tree_node *diff_op_var(Tree_node *const node, VAR var, bool d_mode)
 {
     assert(node       != nullptr);
     assert(node->type == NODE_VAR);
 
-    if (var(node) == var) return Num(1);
+    if (var(node) == var)
+    {
+        if (d_mode) return new_node_var(get_diff_var(var));
+        return Num(1);
+    }
     return Num(0);
 }
 
-static Tree_node *diff_op_case(Tree_node *const node, VAR var)
+static Tree_node *diff_op_case(Tree_node *const node, VAR var, bool d_mode)
 {
     assert(node       != nullptr);
     assert(node->type == NODE_OP);
@@ -1241,7 +1264,7 @@ static Tree_node *diff_op_case(Tree_node *const node, VAR var)
 
         case OP_LOG : return Div(DR, CR);
 
-        case OP_POW : return diff_op_pow(node, var);
+        case OP_POW : return diff_op_pow(node, var, d_mode);
 
         case OP_SQRT: return Div(DR, Mul(Num(2), Sqrt(CL, CR)));
 
@@ -1260,11 +1283,11 @@ static Tree_node *diff_op_case(Tree_node *const node, VAR var)
     return nullptr;
 }
 
-static Tree_node *diff_op_pow(Tree_node *const node, VAR var)
+static Tree_node *diff_op_pow(Tree_node *const node, VAR var, bool d_mode)
 {
-    assert(node           != nullptr);
-    assert(node->type     == NODE_OP);
-    assert(op(node) ==  OP_POW);
+    assert(node       != nullptr);
+    assert(node->type == NODE_OP);
+    assert(op(node)   ==  OP_POW);
 
     if (l(node)->type == NODE_NUM) return Mul(Pow(CL, CR), Mul(Log(Nul, CL), DR));
     if (r(node)->type == NODE_NUM) return Mul(Pow(CL, Num(dbl(r(node))-1)), Mul(CR, DL));
