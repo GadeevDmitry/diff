@@ -68,6 +68,8 @@ static void Tree_optimize_var_execute(Tree_node *node, Tree_node *system_vars[],
                                                                                  int *const tree_num_pow ,
                                                                                  int *const tree_num_sqrt);
 static void make_var_change          (Tree_node *node, Tree_node *system_vars[], int *const vars_index   );
+static int  get_system_var           (Tree_node *node, Tree_node *system_vars[], int *const vars_index);
+
 static void Tree_optimize_var_default(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
                                       const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2);
 static void Tree_optimize_var_div    (int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
@@ -76,6 +78,11 @@ static void Tree_optimize_var_pow    (int *const num_node , int *const num_div ,
                                       const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2);
 static void Tree_optimize_var_sqrt   (int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
                                       const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2);
+
+static bool Tree_cmp                 (Tree_node *first, Tree_node *second);
+static bool Tree_node_cmp            (Tree_node *first, Tree_node *second);
+static bool edge_cmp                 (Tree_node *first, Tree_node *second);
+static bool value_cmp                (Tree_node *first, Tree_node *second);
 
 static double       dfs_value_in_point      (const Tree_node *node, const double x_val);
 
@@ -1362,7 +1369,7 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 #define getVAR var(node)
 
 const int max_node = 20;
-const int max_div  =  2;
+const int max_div  =  1;
 const int max_pow  =  2;
 const int max_sqrt =  2;
 
@@ -1466,23 +1473,44 @@ static void make_var_change(Tree_node *node, Tree_node *system_vars[], int *cons
     assert(vars_index  != nullptr);
 
     if ((size_t) *vars_index * sizeof(char *) == sizeof(var_names)) return;
-    if (getP == nullptr)                                            return;
+    if (getP == nullptr) return;
+
+    int system_var_ind = get_system_var(node, system_vars, vars_index);
 
     if (r(getP) == node)
     {
-        r(getP) = new_node_var((VAR)*vars_index, getP);
-        Tree_vars_update(node);
-        getP    = nullptr;
+        r(getP) = new_node_var((VAR)system_var_ind, getP);
+        
+        if (system_var_ind + 1 == *vars_index)  // check if there was no equivalent tree replaced by a system variable before
+        {
+            Tree_vars_update(node);
+            getP = nullptr;
+        }
+        else Tree_dtor(node);                   // delete the node, because there was the duplicate of it before
     }
     else
     {
-        l(getP) = new_node_var((VAR)*vars_index, getP);
-        Tree_vars_update(node);
-        getP    = nullptr;
+        l(getP) = new_node_var((VAR)system_var_ind, getP);
+        if (system_var_ind + 1 == *vars_index)  // check if there was no equivalent tree replaced by a system variable before
+        {
+            Tree_vars_update(node);
+            getP = nullptr;
+        }
+        else Tree_dtor(node);                   // delete the node, because there was the duplicate of it before
+    }
+}
+
+static int get_system_var(Tree_node *node, Tree_node *system_vars[], int *const vars_index)
+{
+    for (int cnt = ALPHA; cnt < *vars_index; ++cnt)
+    {
+        if (Tree_cmp(node, system_vars[cnt])) return cnt;
     }
 
     system_vars[*vars_index] = node;
     *vars_index += 1;
+
+    return *vars_index - 1;
 }
 
 static void Tree_optimize_var_default(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
@@ -1539,6 +1567,70 @@ static void Tree_optimize_var_sqrt(int *const num_node , int *const num_div , in
     *num_div   = get_max(*num_div, num_div2);
     *num_pow   = get_max(*num_pow, num_pow2);
     *num_sqrt += num_sqrt2 + 1;
+}
+
+static bool Tree_cmp(Tree_node *first, Tree_node *second)
+{
+    assert(first  != nullptr);
+    assert(second != nullptr);
+    
+    if (Tree_node_cmp(first, second))
+    {
+        if (first->type == NODE_OP)
+        {
+            if (op(first) == OP_ADD || op(first) == OP_MUL)
+            {
+                if (l(first) != nullptr)
+                {
+                    return  (Tree_cmp(l(first), l(second)) && Tree_cmp(r(first), r(second))) ||
+                            (Tree_cmp(l(first), r(second)) && Tree_cmp(l(first), r(second)));
+                }
+                return true;
+            }
+            return l(first) == nullptr || (Tree_cmp(l(first), l(second)) && Tree_cmp(r(first), r(second)));
+        }
+        return true;
+    }
+    return false;
+}
+
+static bool Tree_node_cmp(Tree_node *first, Tree_node *second)
+{
+    assert(first  != nullptr);
+    assert(second != nullptr);
+
+    if (value_cmp(first, second)              &&
+        edge_cmp(l(first), l(second))         &&
+        edge_cmp(r(first), r(second))         &&
+        tree_vars(first) == tree_vars(second)
+        ) 
+        return true;
+
+    return false;
+}
+
+static bool edge_cmp(Tree_node *first, Tree_node *second)
+{
+    if (first == nullptr && second == nullptr) return true;
+    if (first != nullptr && second != nullptr) return true;
+    return false;
+}
+
+static bool value_cmp(Tree_node *first, Tree_node *second)
+{
+    assert(first  != nullptr);
+    assert(second != nullptr);
+
+    if (first->type != second->type) return false;
+
+    switch (first->type)
+    {
+        case NODE_OP : return  op(first) ==  op(second);
+        case NODE_NUM: return dbl(first) == dbl(second);
+        case NODE_VAR: return var(first) == var(second);
+        default      : assert(false && "default case in value_cmp()\n");
+    }
+    return false;
 }
 
 /*_____________________________________________________________________*/
@@ -1623,12 +1715,19 @@ static void Tree_node_describe(Tree_node *node, int *const node_number, FILE *co
 
     switch (node->type)
     {
-        case NODE_VAR:      color =  DARK_BLUE;
-                        fillcolor = LIGHT_BLUE;
-                        node_type = "NODE_VAR";
-                        sprintf(value, "var: %s", var_names[getVAR]);
-                        break;
-        
+        case NODE_VAR:  {   if (getVAR >= ALPHA)
+                            {
+                                fillcolor = YELLOW_HTML;
+                                    color = GOLD;
+                            }
+                            else
+                            {       color =  DARK_BLUE;
+                                fillcolor = LIGHT_BLUE;
+                            }
+                            node_type = "NODE_VAR";
+                            sprintf(value, "var: %s", var_names[getVAR]);
+                            break;
+                        }
         case NODE_NUM:      color =  DARK_GREEN;
                         fillcolor = LIGHT_GREEN;
                         node_type =  "NODE_NUM";
