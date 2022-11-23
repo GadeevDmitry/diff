@@ -134,8 +134,8 @@ static bool Tree_dump_tex_op_sub  (Tree_node *node, FILE *const stream, bool    
                                                                                                 const double y_val,
                                                                                                 const double z_val);
 //--------------------------------------------------------------------------------------------------------------------------
-static void         dump_tex_num                (Tree_node *node, FILE *const stream);
-static void         dump_tex_num                (const double num,FILE *const stream);
+static void dump_tex_num          (Tree_node *node, FILE *const stream);
+static void dump_tex_num          (const double num,FILE *const stream);
 
 /*___________________________STATIC_CONST______________________________*/
 
@@ -2008,7 +2008,6 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream,
 {
     assert(node   != nullptr);
     assert(stream != nullptr);
-    assert(is_val ==   false || sys_vars != nullptr);
 
     if (bracket) fprintf(stream, "\\left(");
 
@@ -2077,6 +2076,12 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream,
 #define tex_system_var(VAR_NAME)                                \
         if (getVAR == VAR_NAME)                                 \
         {                                                       \
+            if (sys_vars == nullptr)                            \
+            {                                                   \
+                log_error("sys_vars is nullptr. Can't access"   \
+                          "the system variable.\n");            \
+                return;                                         \
+            }                                                   \
             Tree_dump_tex_dfs_make(sys_vars[VAR_NAME], false);  \
             return;                                             \
         }
@@ -2097,7 +2102,6 @@ static void Tree_dump_tex_var(Tree_node *node, FILE *const stream, bool         
         fprintf(stream, " %s", var_names[getVAR]);
         return;
     }
-    assert(sys_vars != nullptr);
 
     tex_user_var(X, x)
     tex_user_var(Y, y)
@@ -2287,8 +2291,13 @@ void Tex_tree(Tree_node *root, FILE *const stream,  const char *text_before,
 
     if (text_before != nullptr) fprintf(stream, "%s", text_before);
 
-    if (system_vars == nullptr) Tree_dump_tex_dfs(root, false, stream, false, nullptr);
-    else                        Tree_dump_tex_dfs(root, false, stream, true , system_vars, x_val, y_val, z_val);
+    if (system_vars == nullptr  && approx_equal(x_val, POISON)
+                                && approx_equal(y_val, POISON)
+                                && approx_equal(z_val, POISON))
+    {
+        Tree_dump_tex_dfs(root, false, stream, false, nullptr);
+    }
+    else Tree_dump_tex_dfs(root, false, stream, true , system_vars, x_val, y_val, z_val);
 
     if (text_after  != nullptr) fprintf(stream, "%s", text_after );
 
