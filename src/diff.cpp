@@ -68,7 +68,7 @@ static void Tree_optimize_var_execute(Tree_node *node, Tree_node *system_vars[],
                                                                                  int *const tree_num_pow ,
                                                                                  int *const tree_num_sqrt);
 static void make_var_change          (Tree_node *node, Tree_node *system_vars[], int *const vars_index   );
-static int  get_system_var           (Tree_node *node, Tree_node *system_vars[], int *const vars_index);
+static bool get_system_var           (Tree_node *node, Tree_node *system_vars[], int *const vars_index, int *const needed_ind);
 
 static void Tree_optimize_var_default(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
                                       const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2);
@@ -1370,7 +1370,7 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 
 const int max_node = 20;
 const int max_div  =  1;
-const int max_pow  =  2;
+const int max_pow  =  1;
 const int max_sqrt =  2;
 
 //___________________
@@ -1475,42 +1475,49 @@ static void make_var_change(Tree_node *node, Tree_node *system_vars[], int *cons
     if ((size_t) *vars_index * sizeof(char *) == sizeof(var_names)) return;
     if (getP == nullptr) return;
 
-    int system_var_ind = get_system_var(node, system_vars, vars_index);
+    int system_var_ind = 0;
+    bool is_new_var    = get_system_var(node, system_vars, vars_index, &system_var_ind);
 
     if (r(getP) == node)
     {
         r(getP) = new_node_var((VAR)system_var_ind, getP);
         
-        if (system_var_ind + 1 == *vars_index)  // check if there was no equivalent tree replaced by a system variable before
+        if (is_new_var)             // check if there was no equivalent tree replaced by a system variable before
         {
             Tree_vars_update(node);
             getP = nullptr;
         }
-        else Tree_dtor(node);                   // delete the node, because there was the duplicate of it before
+        else Tree_dtor(node);       // delete the node, because there was the duplicate of it before
     }
     else
     {
         l(getP) = new_node_var((VAR)system_var_ind, getP);
-        if (system_var_ind + 1 == *vars_index)  // check if there was no equivalent tree replaced by a system variable before
+
+        if (is_new_var)             // check if there was no equivalent tree replaced by a system variable before
         {
             Tree_vars_update(node);
             getP = nullptr;
         }
-        else Tree_dtor(node);                   // delete the node, because there was the duplicate of it before
+        else Tree_dtor(node);       // delete the node, because there was the duplicate of it before
     }
 }
 
-static int get_system_var(Tree_node *node, Tree_node *system_vars[], int *const vars_index)
+static bool get_system_var(Tree_node *node, Tree_node *system_vars[], int *const vars_index, int *const needed_ind)
 {
     for (int cnt = ALPHA; cnt < *vars_index; ++cnt)
     {
-        if (Tree_cmp(node, system_vars[cnt])) return cnt;
+        if (Tree_cmp(node, system_vars[cnt]))
+        {
+            *needed_ind = cnt;
+            return false;
+        }
     }
 
-    system_vars[*vars_index] = node;
+    system_vars  [*vars_index] = node;
+    *needed_ind = *vars_index;
     *vars_index += 1;
 
-    return *vars_index - 1;
+    return true;
 }
 
 static void Tree_optimize_var_default(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
