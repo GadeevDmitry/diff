@@ -1851,7 +1851,7 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
     assert(node   != nullptr);
     assert(stream != nullptr);
 
-    if (bracket) fprintf(stream, "(");
+    if (bracket) fprintf(stream, "\\left(");
 
     if      (node->type == NODE_NUM  ) dump_tex_num(node, stream);
     else if (node->type == NODE_VAR  ) fprintf(stream, " %s", var_names[getVAR]);
@@ -1891,7 +1891,7 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream)
                           }
         }
     }
-    if (bracket) fprintf(stream, ")");
+    if (bracket) fprintf(stream, "\\right)");
 }
 
 static void Tree_dump_tex_op_unary(Tree_node *node, FILE *const stream)
@@ -1937,7 +1937,8 @@ static void Tree_dump_tex_op_pow(Tree_node *node, FILE *const stream)
     assert(node->type == NODE_OP);
     assert(getOP      ==  OP_POW);
 
-    Tree_dump_tex_dfs(getL, false, stream);
+    if (getL->type == NODE_OP) Tree_dump_tex_dfs(getL, true , stream);
+    else                       Tree_dump_tex_dfs(getL, false, stream);
     fprintf          (stream, "^{");
     Tree_dump_tex_dfs(getR, false, stream);
     fprintf          (stream, "}");
