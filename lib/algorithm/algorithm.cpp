@@ -21,6 +21,12 @@ bool approx_equal(const double a, const double b)
     return fabs(a - b) <= delta;
 }
 
+long long get_max(long long a, long long b)
+{
+    if (a > b) return a;
+    return b;
+}
+
 void my_swap(void *a, void *b, const int elem_size)
 {
     assert(a);
