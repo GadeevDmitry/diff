@@ -62,6 +62,21 @@ static Tree_node   *diff_op_pow             (Tree_node *const node, VAR var, boo
 static void         diff_prev_init          (Tree_node *diff_node, Tree_node *prev);
 static Tree_node   *Tree_copy               (Tree_node *cp_from);
 
+static void Tree_optimize_var_execute(Tree_node *node, Tree_node *system_vars[], int *const vars_index   ,
+                                                                                 int *const tree_num_node,
+                                                                                 int *const tree_num_div ,
+                                                                                 int *const tree_num_pow ,
+                                                                                 int *const tree_num_sqrt);
+static void make_var_change          (Tree_node *node, Tree_node *system_vars[], int *const vars_index   );
+static void Tree_optimize_var_default(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
+                                      const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2);
+static void Tree_optimize_var_div    (int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
+                                      const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2);
+static void Tree_optimize_var_pow    (int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
+                                      const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2);
+static void Tree_optimize_var_sqrt   (int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
+                                      const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2);
+
 static double       dfs_value_in_point      (const Tree_node *node, const double x_val);
 
 static void         Tree_dump_graphviz_dfs  (Tree_node *node, int *const node_number, FILE *const stream);
@@ -1346,7 +1361,187 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 #define getDBL dbl(node)
 #define getVAR var(node)
 
+const int max_node = 20;
+const int max_div  =  2;
+const int max_pow  =  2;
+const int max_sqrt =  2;
+
 //___________________
+
+void Tree_optimize_var_main(Tree_node *root, Tree_node *system_vars[])
+{
+    log_header(__PRETTY_FUNCTION__);
+
+
+    if (Tree_verify(root) == false)
+    {
+        log_error("Can't do optimize_var, because the tree is invalid.\n");
+        return;
+    }
+    if (system_vars == nullptr)
+    {
+        log_error("system_vars is nullptr.\n");
+        return;
+    }
+
+    for (size_t i = 0; i * sizeof(char *) < sizeof(var_names); ++i) system_vars[i] = nullptr;
+    
+    int vars_index = ALPHA;
+    int num_node   =     0;
+    int num_div    =     0;
+    int num_pow    =     0;
+    int num_sqrt   =     0;
+
+    Tree_optimize_var_execute(root, system_vars, &vars_index, &num_node, &num_div, &num_pow, &num_sqrt);
+    Tree_vars_update(root);
+
+    log_end_header();
+}
+
+static void Tree_optimize_var_execute(Tree_node *node, Tree_node *system_vars[], int *const vars_index   ,
+                                                                                 int *const tree_num_node,
+                                                                                 int *const tree_num_div ,
+                                                                                 int *const tree_num_pow ,
+                                                                                 int *const tree_num_sqrt)
+{
+    assert(node        != nullptr);
+    assert(system_vars != nullptr);
+    assert(vars_index  != nullptr);
+
+    assert(tree_num_node != nullptr);
+    assert(tree_num_div  != nullptr);
+    assert(tree_num_pow  != nullptr);
+    assert(tree_num_sqrt != nullptr);
+
+    if (node->type == NODE_OP)
+    {
+        int subtree_num_node = 0;
+        int subtree_num_div  = 0;
+        int subtree_num_pow  = 0;
+        int subtree_num_sqrt = 0;
+        Tree_optimize_var_execute(getL, system_vars, vars_index, tree_num_node,
+                                                                 tree_num_div ,
+                                                                 tree_num_pow ,
+                                                                 tree_num_sqrt);
+
+        Tree_optimize_var_execute(getR, system_vars, vars_index, &subtree_num_node,
+                                                                 &subtree_num_div ,
+                                                                 &subtree_num_pow ,
+                                                                 &subtree_num_sqrt);
+        switch (getOP)
+        {
+            case OP_DIV : Tree_optimize_var_div        (   tree_num_node,    tree_num_div,    tree_num_pow,    tree_num_sqrt,
+                                                        subtree_num_node, subtree_num_div, subtree_num_pow, subtree_num_sqrt);
+                          break;
+            case OP_POW : Tree_optimize_var_pow        (   tree_num_node,    tree_num_div,    tree_num_pow,    tree_num_sqrt,
+                                                        subtree_num_node, subtree_num_div, subtree_num_pow, subtree_num_sqrt);
+                          break;
+            case OP_SQRT: Tree_optimize_var_sqrt       (   tree_num_node,    tree_num_div,    tree_num_pow,    tree_num_sqrt,
+                                                        subtree_num_node, subtree_num_div, subtree_num_pow, subtree_num_sqrt);
+                          break;
+            default     : Tree_optimize_var_default    (   tree_num_node,    tree_num_div,    tree_num_pow,    tree_num_sqrt,
+                                                        subtree_num_node, subtree_num_div, subtree_num_pow, subtree_num_sqrt);
+                          break;
+        }
+
+        if (*tree_num_node > max_node ||
+            *tree_num_div  > max_div  ||
+            *tree_num_pow  > max_pow  ||
+            *tree_num_sqrt > max_sqrt   )
+        {
+            make_var_change(node, system_vars, vars_index);
+            *tree_num_node = 1;
+            *tree_num_div  = 0;
+            *tree_num_pow  = 0;
+            *tree_num_sqrt = 0;
+        }
+    }
+    else *tree_num_node = 1; //node->type != NODE_OP
+}
+
+static void make_var_change(Tree_node *node, Tree_node *system_vars[], int *const vars_index)
+{
+    assert(node        != nullptr);
+    assert(system_vars != nullptr);
+    assert(vars_index  != nullptr);
+
+    if ((size_t) *vars_index * sizeof(char *) == sizeof(var_names)) return;
+    if (getP == nullptr)                                            return;
+
+    if (r(getP) == node)
+    {
+        r(getP) = new_node_var((VAR)*vars_index, getP);
+        Tree_vars_update(node);
+        getP    = nullptr;
+    }
+    else
+    {
+        l(getP) = new_node_var((VAR)*vars_index, getP);
+        Tree_vars_update(node);
+        getP    = nullptr;
+    }
+
+    system_vars[*vars_index] = node;
+    *vars_index += 1;
+}
+
+static void Tree_optimize_var_default(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
+                                      const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2)
+{
+    assert(num_node != nullptr);
+    assert(num_div  != nullptr);
+    assert(num_pow  != nullptr);
+    assert(num_sqrt != nullptr);
+
+    *num_node += num_node2 + 1;
+    *num_div   = get_max(*num_div , num_div2 );
+    *num_pow   = 0;
+    *num_sqrt  = get_max(*num_sqrt, num_sqrt2);
+}
+
+static void Tree_optimize_var_div(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
+                                  const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2)
+{
+    assert(num_node != nullptr);
+    assert(num_div  != nullptr);
+    assert(num_pow  != nullptr);
+    assert(num_sqrt != nullptr);
+
+    *num_node = get_max(*num_node, num_node2);
+    *num_div += num_div2 + 1;
+    *num_pow  = 0;
+    *num_sqrt = get_max(*num_sqrt, num_sqrt2);
+}
+
+static void Tree_optimize_var_pow(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
+                                  const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2)
+{
+    assert(num_node != nullptr);
+    assert(num_div  != nullptr);
+    assert(num_pow  != nullptr);
+    assert(num_sqrt != nullptr);
+
+    *num_node += num_node2 + 1;
+    *num_div   = get_max(*num_div, num_div2);
+    *num_pow  += num_pow2 + 1;
+    *num_sqrt += num_sqrt2;
+}
+
+static void Tree_optimize_var_sqrt(int *const num_node , int *const num_div , int *const num_pow , int *const num_sqrt ,
+                                   const int  num_node2, const int  num_div2, const int  num_pow2,  const int num_sqrt2)
+{
+    assert(num_node != nullptr);
+    assert(num_div  != nullptr);
+    assert(num_pow  != nullptr);
+    assert(num_sqrt != nullptr);
+
+    *num_node += num_node2 + 1;
+    *num_div   = get_max(*num_div, num_div2);
+    *num_pow   = get_max(*num_pow, num_pow2);
+    *num_sqrt += num_sqrt2 + 1;
+}
+
+/*_____________________________________________________________________*/
 
 void Tree_dump_graphviz(Tree_node *root)
 {
