@@ -39,9 +39,9 @@ enum GRAPHVIZ_COLOR
     DARK_PINK       ,
 
     GOLD            ,
-    YELLOW          ,
+    YELLOW_HTML     ,
     WHITE           ,
-    BLACK
+    BLACK           ,
 };
 
 #endif //GRAPH_DUMP_H
