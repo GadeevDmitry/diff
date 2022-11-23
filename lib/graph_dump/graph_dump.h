@@ -18,6 +18,8 @@ static const char *graphviz_color_names[]   =
     "darkorange3"   ,
     "deeppink3"     ,
 
+    "gold"          ,
+    "yellow"        ,
     "white"         ,
     "black"
 };
@@ -36,6 +38,8 @@ enum GRAPHVIZ_COLOR
     DARK_ORANGE     ,
     DARK_PINK       ,
 
+    GOLD            ,
+    YELLOW          ,
     WHITE           ,
     BLACK
 };
