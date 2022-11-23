@@ -85,6 +85,10 @@ static bool Tree_node_cmp            (Tree_node *first, Tree_node *second);
 static bool edge_cmp                 (Tree_node *first, Tree_node *second);
 static bool value_cmp                (Tree_node *first, Tree_node *second);
 //--------------------------------------------------------------------------------------------------------------------------
+static double Tree_get_value_in_var  (Tree_node *node, Tree_node *system_vars[],    const double x_val,
+                                                                                    const double y_val,
+                                                                                    const double z_val);
+//--------------------------------------------------------------------------------------------------------------------------
 static void         Tree_dump_graphviz_dfs  (Tree_node *node, int *const node_number, FILE *const stream);
 static void         Tree_node_describe      (Tree_node *node, int *const node_number, FILE *const stream);
 static void         print_Tree_node         (Tree_node *node, int *const node_number, FILE *const stream,   GRAPHVIZ_COLOR fillcolor,
@@ -1239,7 +1243,9 @@ Tree_node *diff_main(Tree_node **root, const char *vars)
                   break;
         case 'z': diff_root = diff_execute(*root, Z, false);
                   break;
-        default : diff_root = Add(diff_execute(*root, X, true), Add(diff_execute(*root, Y, true), diff_execute(*root, Z, true)));
+        default : diff_root = Add(diff_execute(*root, X, true),
+                              Add(diff_execute(*root, Y, true),
+                                  diff_execute(*root, Z, true)));
                   break;
     }
     diff_prev_init(diff_root, nullptr);
@@ -1666,6 +1672,63 @@ static bool value_cmp(Tree_node *first, Tree_node *second)
 
 /*_____________________________________________________________________*/
 
+double Tree_get_value_in_point(Tree_node *node, Tree_node *system_vars[],   const double x_val,
+                                                                            const double y_val,
+                                                                            const double z_val)
+{
+    assert(node != nullptr);
+
+    switch (node->type)
+    {
+        case NODE_NUM: return getDBL;
+        case NODE_VAR: return Tree_get_value_in_var(node, system_vars, x_val, y_val, z_val);
+        case NODE_OP :  {
+                            double left  = Tree_get_value_in_point(getL, system_vars, x_val, y_val, z_val);
+                            double right = Tree_get_value_in_point(getR, system_vars, x_val, y_val, z_val);
+                            
+                            return Tree_counter(left, right, getOP);
+                        }
+    }
+    return 0;
+}
+
+static double Tree_get_value_in_var(Tree_node *node, Tree_node *system_vars[],  const double x_val,
+                                                                                const double y_val,
+                                                                                const double z_val)
+{
+    assert(node       !=  nullptr);
+    assert(node->type == NODE_NUM);
+
+    switch (getVAR)
+    {
+        case X : return x_val;
+        case Y : return y_val;
+        case Z : return z_val;
+
+        case DX:
+        case DY:
+        case DZ: log_error("Can't get value in diff_node.\n");
+                 return 0;
+
+        default:{
+                    if (system_vars == nullptr)
+                    {
+                        log_error("system_vars is nullptr. Can't access the system variable.\n");
+                        return 0;
+                    }
+                    if (system_vars[getVAR] == nullptr)
+                    {
+                        log_error("sys_vars[VAR_NAME] is nullptr. Can't access the system variable.\n");
+                        return 0;
+                    }
+                    return Tree_get_value_in_point(system_vars[getVAR], system_vars, x_val, y_val, z_val);
+                }
+    }
+    return 0;
+}
+
+/*_____________________________________________________________________*/
+
 void Tree_dump_graphviz(Tree_node *root)
 {
     log_header  (__PRETTY_FUNCTION__);
@@ -2081,6 +2144,12 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream,
                 log_error("sys_vars is nullptr. Can't access"   \
                           "the system variable.\n");            \
                 return;                                         \
+            }                                                   \
+            if (sys_vars[VAR_NAME] == nullptr)                  \
+            {                                                   \
+                log_error("sys_vars[VAR_NAME] is nullptr."      \
+                          "Can't access the system variable."   \
+                          "\n");                                \
             }                                                   \
             Tree_dump_tex_dfs_make(sys_vars[VAR_NAME], false);  \
             return;                                             \
