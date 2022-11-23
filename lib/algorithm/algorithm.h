@@ -4,7 +4,8 @@
 /*_________________________________________FUNCTION_DECLARATIONS_________________________________________*/
 
 bool        approx_equal            (const double a, const double b);
-long long   get_max                 (long long    a, long long    b);
+int         get_max                 (int          a, int          b);
+
 void        my_swap                 (void *a, void *b,  const int elem_size);
 void       *get_ptr                 (void *begin_array, const int index,     const int elem_size);
 
