@@ -8,9 +8,11 @@
 
 #include "diff.h"
 #include "../lib/logs/log.h"
+#include "../lib/algorithm/algorithm.h"
 
 static const int   TASK_SIZE =        100;
 static const int   VARS_SIZE =        100;
+static const int   BUFF_SIZE =       1000;
 static       int    cur_task =          1;
 static const char      *file = "math.tex";
 
@@ -21,8 +23,17 @@ char  task[TASK_SIZE] = {};
 void       header            (FILE *const stream);
 void       new_task          (FILE *const stream);
 char      *get_task          ();
+//---------------------------------------------------------------------------------------------------------------------------
 void       Tex_system_vars   (Tree_node *system_vars[], FILE *const stream);
-Tree_node *Teylor            (Tree_node **tree,         FILE *const stream, const char *text_f, const char *text_f_point);
+Tree_node *Teylor            (Tree_node **tree,         FILE *const stream, const char *text_f, const char *text_f_point,
+                                                                                                double *const dbl);
+//---------------------------------------------------------------------------------------------------------------------------
+void Tree_plot      (Tree_node *root, Tree_node *root_vars[],
+                     Tree_node *diff, Tree_node *diff_vars[],   const double x_min = POISON, const double x_max = POISON,
+                                                                const double y_min = POISON, const double y_max = POISON);
+bool func_init      (Tree_node *root, Tree_node *system_vars[], char *const bracket_fmt, bool is_diff);
+void func_system    (const char *root_fmt, const char *diff_fmt);
+void range_system   (const double min_val, const double max_val, const char c);
 
 /*____________________________________*/
 
@@ -119,24 +130,41 @@ int main()
 
 //-------------------------------------------------------------------------------------------------------------------------------
 
-    NEW_PAGE  ()
     START_TASK()
     Tex_message(stream, "Давайте немного отвлечёмся от скучного дифференцирования и устного счёта. Для этого предлагаю "
-                        "разложить незамысловатую функцию в ряд Тейлора в окрестности -2.\n");
-    Tex_message(stream, "Как известно(смотри пример №1), любую функцию f(x) в точке $x_{0}$ можно округлить до "
+                        "разложить незамысловатую функцию в ряд Тейлора в окрестности -3.\n");
+    Tex_message(stream, "Как известно(смотри пример №1), любую функцию f(x) в окрестности точки $x_{0}$ можно округлить до "
                         "$o((x-x_{0})^{n})$ по формуле:\n");
     _$$
     Tex_message(stream, "f(x_{0})=\\sum_{i=0}^{n}\\frac{f^{(i)}(x_{0})x^i}{i!} + o((x-x_{0})^{n})");
     _$$
-    Tex_message(stream, "Зафиксируем n = 3. Тогда:\n");
+    Tex_message(stream, "Зафиксируем n = 2. Тогда:\n");
 
-    tree_diff = Teylor(&tree     , stream,   "f(x)=",   "f(-2)=");
-    tree      = Teylor(&tree_diff, stream,  "f'(x)=",  "f'(-2)=");
-    NEW_PAGE()
-    tree_diff = Teylor(&tree     , stream, "f''(x)=", "f''(-2)=");
+    double k_0 = 0, k_1 = 0, k_2 = 0;
+
+    tree_diff = Teylor(&tree     , stream,   "f(x)=",   "f(-2)=", &k_0);
+    
+    Tex_message(stream, "Так как $\\pi^{e}<e^{\\pi}$, то:");
+    tree      = Teylor(&tree_diff, stream,  "f'(x)=",  "f'(-2)=", &k_1);
+    
+    Tex_message(stream, "И ежу очевидно, что:");
+    tree_diff = Teylor(&tree     , stream, "f''(x)=", "f''(-2)=", &k_2);
+
+    Tex_message(stream, "В итоге, получаем:");
+    _$$
+    Tex_message(stream, "f(x)="); dump_tex_num(k_0, stream);
+    Tex_message(stream, "+"    ); dump_tex_num(k_1, stream);
+    Tex_message(stream, "x+"   ); dump_tex_num(k_2, stream);
+    Tex_message(stream, "\\frac{x^2}{2}+o((x+3)^{2})");
+    _$$
+
     END_TASK()
 
 //-------------------------------------------------------------------------------------------------------------------------------
+
+    START_TASK()
+    
+    Tree_plot(tree, nullptr, nullptr, nullptr);
 
     END()
 }
@@ -174,6 +202,8 @@ void new_task(FILE *const stream)
                         "}\n",  cur_task);
 }
 
+/*_______________________________________________________________________________________________________________________________*/
+
 extern const char *var_names[];
 
 void Tex_system_vars(Tree_node *system_vars[], FILE *const stream)
@@ -192,7 +222,7 @@ void Tex_system_vars(Tree_node *system_vars[], FILE *const stream)
     }
 }
 
-Tree_node *Teylor(Tree_node **tree, FILE *const stream, const char *text_f, const char *text_f_point)
+Tree_node *Teylor(Tree_node **tree, FILE *const stream, const char *text_f, const char *text_f_point, double *const dbl)
 {
     Tree_node *tree_diff = diff_main(tree, "x");
 
@@ -204,10 +234,10 @@ Tree_node *Teylor(Tree_node **tree, FILE *const stream, const char *text_f, cons
     _$$
     Tex_system_vars(system_vars, stream);
 
-    double val = Tree_get_value_in_point(*tree, system_vars, -2);
+    *dbl = Tree_get_value_in_point(*tree, system_vars, -2);
     _$$
     Tex_tree   (*tree, stream, text_f_point, "=", system_vars, -2);
-    Tex_message(stream, "%lg", val);
+    Tex_message(stream, "%lg", *dbl);
     _$$
 
     Tree_dtor(*tree);
@@ -215,4 +245,77 @@ Tree_node *Teylor(Tree_node **tree, FILE *const stream, const char *text_f, cons
     for (int i = 0; i < VARS_SIZE; ++i) Tree_dtor(system_vars[i]);
 
     return tree_diff;
+}
+
+/*_______________________________________________________________________________________________________________________________*/
+
+#define system(s)                   \
+        system(s);                  \
+        log_message("%s\n", s);
+
+void Tree_plot(Tree_node *root, Tree_node *root_vars[],
+               Tree_node *diff, Tree_node *diff_vars[], const double x_min, const double x_max,
+                                                        const double y_min, const double y_max)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    system("gnuplot");
+    //system("set xlabel \"x\"");
+    //system("set ylabel \"y\"");
+    //system("set grid");
+
+    if (!approx_equal(x_min, POISON)) range_system(x_min, x_max, 'x');
+    if (!approx_equal(y_min, POISON)) range_system(y_min, y_max, 'y');
+
+    char root_fmt[BUFF_SIZE] = {};
+    char diff_fmt[BUFF_SIZE] = {};
+
+    if (!(func_init(root, root_vars, root_fmt, false) && func_init(diff, diff_vars, diff_fmt, true)))
+    {
+        log_error("Init is invalid.\n");
+        log_end_header();
+        return;
+    }
+    func_system(root_fmt, diff_fmt);
+
+    system("exit");
+    log_end_header();
+}
+
+bool func_init(Tree_node *root, Tree_node *system_vars[], char *const bracket_fmt, bool is_diff)
+{
+    if (root == nullptr)
+    {
+        log_warning("root is nullptr.\n");
+        return true;
+    }
+    if (!Tree_get_bracket_fmt(root, system_vars, bracket_fmt))
+    {
+        log_error("Tree_get_bracket returned false.\n");
+        return false;
+    }
+
+    char cmd[2 * BUFF_SIZE] = {};
+    if (is_diff) sprintf(cmd, "df(x)=%s", bracket_fmt);
+    else         sprintf(cmd,  "f(x)=%s", bracket_fmt);
+
+    system(cmd);
+    return true;
+}
+
+void func_system(const char *root_fmt, const char *diff_fmt)
+{
+    assert(root_fmt != nullptr);
+    assert(diff_fmt != nullptr);
+
+    if      (root_fmt[0] && diff_fmt[0]) { /*system("plot f(x), df(x)");*/  }
+    else if (root_fmt[0])                { /*system("plot f(x)");*/         }
+    else if (diff_fmt[0])                { /*system("plot df(x)");*/        }
+}
+
+void range_system(const double min_val, const double max_val, const char c)
+{
+    char    cmd[BUFF_SIZE] = {};
+    sprintf(cmd, "set %crange [%lg:%lg]", c, min_val, max_val);
+    system (cmd);
 }
