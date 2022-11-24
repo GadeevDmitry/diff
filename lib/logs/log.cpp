@@ -112,11 +112,6 @@ static void LOG_STREAM_CLOSE()
     
     if (DYNAMIC_MEMORY == 0) log_message(GREEN "DYNAMIC_MEMORY = 0. \n" CANCEL                );
     else                     log_message(RED   "DYNAMIC_MEMORY = %d.\n" CANCEL, DYNAMIC_MEMORY);
-
-    for (int i = 0; i < DYNAMIC_MEMORY; ++i)
-    {
-        log_error("%p\n", STORE_MEMORY[i]);
-    }
     
     fprintf(LOG_STREAM, "\n\n\"%s\" CLOSING IS OK\n\n", LOG_FILE);
     fclose (LOG_STREAM);
@@ -206,7 +201,6 @@ void *log_calloc(size_t number, size_t size)
     void *ret = calloc(number, size);
     if   (ret == nullptr) return nullptr;
 
-    STORE_MEMORY[DYNAMIC_MEMORY] = ret;
     ++DYNAMIC_MEMORY;
     return ret;
 }
@@ -215,10 +209,6 @@ void log_free(void *ptr)
 {
     if (ptr == nullptr) return;
 
-    for (int i = 0; i < DYNAMIC_MEMORY; ++i)
-    {
-        if (STORE_MEMORY[i] == ptr) STORE_MEMORY[i] = STORE_MEMORY[DYNAMIC_MEMORY - 1];
-    }
     --DYNAMIC_MEMORY;
     free(ptr);
 }
