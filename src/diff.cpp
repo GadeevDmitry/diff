@@ -101,6 +101,15 @@ static void         Tree_dump_txt_dfs           (Tree_node *node, bool bracket);
 static void         dump_txt_num                (Tree_node *node);
 static void         dump_txt_unary              (Tree_node *node);
 //--------------------------------------------------------------------------------------------------------------------------
+static bool Tree_get_bracket_dfs        (Tree_node *node, Tree_node *system_vars[], char *const buff    ,
+                                                                                    int  *const buff_pos);
+static bool Tree_get_bracket_op_bin     (Tree_node *node, Tree_node *system_vars[], char *const buff,
+                                                                                    int  *const buff_pos);
+static bool Tree_get_bracket_op_unary   (Tree_node *node, Tree_node *system_vars[], char *const buff,
+                                                                                    int  *const buff_pos);
+static bool Tree_get_bracket_case_var   (Tree_node *node, Tree_node *system_vars[], char *const buff,
+                                                                                    int  *const buff_pos);
+//--------------------------------------------------------------------------------------------------------------------------
 static void Tree_dump_tex_system  (char *const dump_tex, char *const dump_pdf, const int cur);
 
 static void Tree_dump_tex_dfs     (Tree_node *node, bool bracket, FILE *const stream, bool           is_val = false  ,
@@ -139,7 +148,6 @@ static bool Tree_dump_tex_op_sub  (Tree_node *node, FILE *const stream, bool    
                                                                                                 const double z_val);
 //--------------------------------------------------------------------------------------------------------------------------
 static void dump_tex_num          (Tree_node *node, FILE *const stream);
-static void dump_tex_num          (const double num,FILE *const stream);
 
 /*___________________________STATIC_CONST______________________________*/
 
@@ -194,19 +202,51 @@ static const char *op_names[] =
     "arctan", // OP_ATAN
 };
 
+const char *plot_names[] =
+{
+    "+"     ,
+    "-"     ,
+    "*"     ,
+    "/"     ,
+    "sin"   ,
+    "cos"   ,
+    "tan"   ,
+    "**"    ,
+    "log"   ,
+    "sqrt"  ,
+    "sinh"  ,
+    "cosh"  ,
+    "asin"  ,
+    "acos"  ,
+    "atan"  ,
+};
+
 const char *var_names[] =
 {
-    "x"         ,
-    "y"         ,
-    "z"         ,
-    "dx"        ,
-    "dy"        ,
-    "dz"        ,
-    "\\alpha"   ,
-    "\\beta"    ,
-    "\\gamma"   ,
-    "\\lambda"  ,
-    "\\mu"      ,
+    "x"             ,
+    "y"             ,
+    "z"             ,
+    "dx"            ,
+    "dy"            ,
+    "dz"            ,
+    "\\alpha"       ,
+    "\\beta"        ,
+    "\\gamma"       ,
+    "\\delta"       ,
+    "\\varepsilon"  ,
+    "\\eta"         ,
+    "\\theta"       ,
+    "\\kappa"       ,
+    "\\lambda"      ,
+    "\\mu"          ,
+    "\\nu"          ,
+    "\\xi"          ,
+    "\\rho"         ,
+    "\\sigma"       ,
+    "\\tau"         ,
+    "\\phi"         ,
+    "\\psi"         ,
+    "\\omega"       ,
 };
 
 static const int VALUE_SIZE = 100;
@@ -250,7 +290,7 @@ static const char *verify_error_messages[] =
 };
 
 const char *tex_header =
-"\\documentclass[12pt,a5paper,fleqn]{article}\n"
+"\\documentclass[12pt,a4paper,fleqn]{article}\n"
 "\\usepackage[utf8]{inputenc}\n"
 "\\usepackage{amssymb, amsmath, multicol}\n"
 "\\usepackage[russian]{babel}\n"
@@ -264,7 +304,7 @@ const char *tex_header =
 "\\usepackage{libertine}\n"
 "\n"
 "\\oddsidemargin=-15.4mm\n"
-"\\textwidth=127mm\n"
+"\\textwidth=180mm\n"
 "\\headheight=-32.4mm\n"
 "\\textheight=277mm\n"
 "\\tolerance=100\n"
@@ -1886,11 +1926,12 @@ static void get_str_tree_vars(Tree_node *node, char *const str)
     assert(str  != nullptr);
 
     size_t i = 0;
-    for (; i < sizeof(char) * 8; ++i)
+    for (; i * sizeof(char *) < sizeof(var_names); ++i)
     {
         if ((1 << i) & TREE_VARS) str[i] = '1';
         else                      str[i] = '0';
     }
+    while (i > 1 && str[i - 1] == '0') --i;
     str[i]   = '\0';
 }
 
@@ -2182,11 +2223,10 @@ static void Tree_dump_tex_var(Tree_node *node, FILE *const stream, bool         
     tex_diff_var(DY)
     tex_diff_var(DZ)
 
-    tex_system_var(ALPHA )
-    tex_system_var(BETA  )
-    tex_system_var(GAMMA )
-    tex_system_var(LAMBDA)
-    tex_system_var(MU    )
+    for (int sys_cnt = ALPHA; sys_cnt * sizeof(char *) < sizeof(var_names); ++sys_cnt)
+    {
+        tex_system_var((VAR) sys_cnt);
+    }
 }
 
 //___________________
@@ -2301,7 +2341,7 @@ static void dump_tex_num(Tree_node *node, FILE *const stream)
     dump_tex_num(dbl(node), stream);
 }
 
-static void dump_tex_num(const double num, FILE *const stream)
+void dump_tex_num(const double num, FILE *const stream)
 {
     assert(stream != nullptr);
 
@@ -2401,6 +2441,142 @@ void Tex_end(FILE *const stream)
 
     fprintf(stream, "\\end{document}\n");
     fclose (stream);
+}
+
+/*_____________________________________________________________________*/
+
+bool Tree_get_bracket_fmt(Tree_node *root, Tree_node *system_vars[], char *const buff)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (Tree_verify(root) == false)
+    {
+        log_error     ("Invalid tree.\n");
+        log_end_header();
+        return false;
+    }
+    if (buff == nullptr)
+    {
+        log_error     ("buff is nullptr.\n");
+        log_end_header();
+        return false;
+    }
+
+    int buff_pos = 0;
+    log_end_header();
+    return Tree_get_bracket_dfs(root, system_vars, buff, &buff_pos);
+}
+
+static bool Tree_get_bracket_dfs(Tree_node *node, Tree_node *system_vars[], char *const buff    ,
+                                                                            int  *const buff_pos)
+{
+    assert(node     != nullptr);
+    assert(buff     != nullptr);
+    assert(buff_pos != nullptr);
+
+    switch(node->type)
+    {
+        case NODE_NUM:  {
+                            int added = 0;
+                            sprintf(buff + *buff_pos, "(%lg)%n", getDBL, &added);
+                            *buff_pos += added;
+
+                            return true;
+                        }
+        case NODE_VAR:  return Tree_get_bracket_case_var(node, system_vars, buff, buff_pos);
+        case NODE_OP :  switch(getOP)
+                        {
+                            case OP_ADD:
+                            case OP_SUB:
+                            case OP_MUL:
+                            case OP_DIV:
+                            case OP_POW: return Tree_get_bracket_op_bin  (node, system_vars, buff, buff_pos);
+                            default    : return Tree_get_bracket_op_unary(node, system_vars, buff, buff_pos);
+                        }
+        
+        default      :  log_error(      "default case in Tree_get_brackets_dfs(): node->type = %d.\n", node->type);
+                        assert(false && "default case in Tree_get_brackets_dfs()");
+                        return false;
+    }
+    return false;
+}
+
+static bool Tree_get_bracket_op_bin(Tree_node *node, Tree_node *system_vars[],  char *const buff,
+                                                                                int  *const buff_pos)
+{
+    assert(node     != nullptr);
+    assert(buff     != nullptr);
+    assert(buff_pos != nullptr);
+
+    sprintf(buff + *buff_pos, "(");
+    *buff_pos += 1;
+
+    if (Tree_get_bracket_dfs(getL, system_vars, buff, buff_pos))
+    {
+        int added = 0;
+        sprintf(buff + *buff_pos, "%s%n", plot_names[getOP], &added);
+        *buff_pos += added;
+    }
+    else return false;
+
+    if (Tree_get_bracket_dfs(getR, system_vars, buff, buff_pos))
+    {
+        int added = 0;
+        sprintf(buff + *buff_pos, ")");
+        *buff_pos += 1;
+    }
+    else return false;
+
+    return true;
+}
+
+static bool Tree_get_bracket_op_unary(Tree_node *node, Tree_node *system_vars[],  char *const buff,
+                                                                                  int  *const buff_pos)
+{
+    assert(node     != nullptr);
+    assert(buff     != nullptr);
+    assert(buff_pos != nullptr);
+
+    int added = 0;
+    sprintf(buff + *buff_pos, "(%s%n", plot_names[getOP], &added);
+    *buff_pos += added;
+
+    if (Tree_get_bracket_dfs(getR, system_vars, buff, buff_pos))
+    {
+        sprintf(buff +*buff_pos, ")");
+        *buff_pos += 1;
+    }
+    return true;
+}
+
+static bool Tree_get_bracket_case_var(Tree_node *node, Tree_node *system_vars[], char *const buff,
+                                                                                 int  *const buff_pos)
+{
+    assert(node       !=  nullptr);
+    assert(buff       !=  nullptr);
+    assert(buff_pos   !=  nullptr);
+    assert(node->type == NODE_VAR);
+
+    if (getVAR < ALPHA)
+    {
+        int added = 0;
+        sprintf(buff + *buff_pos, "(%s)%n", var_names[getVAR], &added);
+        *buff_pos += added;
+
+        return true;
+    }
+    if (system_vars == nullptr)
+    {
+        log_error("system_vars is nullptr. Can't access the system variable.\n");
+        return false;
+    }
+    if (system_vars[getVAR] == nullptr)
+    {
+        log_error("system_vars[VAR_NAME] is nullptr. Can't access the system variable.\n");
+        return false;
+    }
+
+    return Tree_get_bracket_dfs(system_vars[getVAR], system_vars, buff, buff_pos);
 }
 
 /*_____________________________________________________________________*/

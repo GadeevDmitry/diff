@@ -39,8 +39,21 @@ enum VAR
     ALPHA   ,
     BETA    ,
     GAMMA   ,
+    DELTA   ,
+    EPSILON ,
+    ETA     ,
+    THETA   ,
+    KAPPA   ,
     LAMBDA  ,
     MU      ,
+    NU      ,
+    XI      ,
+    RHO     ,
+    SIGMA   ,
+    TAU     ,
+    PHI     ,
+    PSI     ,
+    OMEGA   ,
 };
 
 struct Tree_node
@@ -91,9 +104,11 @@ void        Tree_dtor               (Tree_node *const root);
 //--------------------------------------------------------------------------------------------------------------------------
 bool        Tree_parsing_main       (Tree_node *const root, const char *file);
 void        Tree_optimize_main      (Tree_node **     root);
-Tree_node  *diff_main               (Tree_node **     root, const char *vars = "a");
 void        Tree_optimize_var_main  (Tree_node **     root, Tree_node *system_vars[]);
-double Tree_get_value_in_point      (Tree_node *      node, Tree_node *system_vars[],   const double x_val = 0,
+//--------------------------------------------------------------------------------------------------------------------------
+Tree_node  *diff_main               (Tree_node **root, const char *vars = "a");
+bool        Tree_get_bracket_fmt    (Tree_node * root, Tree_node *system_vars[], char *const buff);
+double      Tree_get_value_in_point (Tree_node * node, Tree_node *system_vars[],   const double x_val = 0,
                                                                                         const double y_val = 0,
                                                                                         const double z_val = 0);
 //--------------------------------------------------------------------------------------------------------------------------
@@ -111,7 +126,7 @@ void        Tex_tree                (Tree_node  *root, FILE *const stream, const
 
 void        Tex_message             (FILE *const stream, const char *fmt, ...);
 void        Tex_end                 (FILE *const stream);
-
+void        dump_tex_num            (const double num,FILE *const stream);
 /*______________________________________________________________________________________*/
 
 #endif //DIFF_H
