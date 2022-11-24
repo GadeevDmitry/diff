@@ -92,10 +92,10 @@ void        Tree_dtor               (Tree_node *const root);
 bool        Tree_parsing_main       (Tree_node *const root, const char *file);
 void        Tree_optimize_main      (Tree_node **     root);
 Tree_node  *diff_main               (Tree_node **     root, const char *vars = "a");
-void        Tree_optimize_var_main  (Tree_node *root, Tree_node *system_vars[]);
-double Tree_get_value_in_point      (Tree_node *node, Tree_node *system_vars[],   const double x_val,
-                                                                            const double y_val,
-                                                                            const double z_val);
+void        Tree_optimize_var_main  (Tree_node **     root, Tree_node *system_vars[]);
+double Tree_get_value_in_point      (Tree_node *      node, Tree_node *system_vars[],   const double x_val = 0,
+                                                                                        const double y_val = 0,
+                                                                                        const double z_val = 0);
 //--------------------------------------------------------------------------------------------------------------------------
 void        Tree_dump_graphviz      (Tree_node *root);
 void        Tree_dump_txt           (Tree_node *root);
@@ -105,9 +105,9 @@ void        Tex_head                (const char *file, FILE **stream);
 void        Tex_tree                (Tree_node  *root, FILE *const stream, const char *text_before   = nullptr,
                                                                            const char *text_after    = nullptr,
                                                                            Tree_node  *system_vars[] = nullptr,
-              const double x_val = POISON,
-              const double y_val = POISON,
-              const double z_val = POISON);
+              double x_val = POISON,
+              double y_val = POISON,
+              double z_val = POISON);
 
 void        Tex_message             (FILE *const stream, const char *fmt, ...);
 void        Tex_end                 (FILE *const stream);

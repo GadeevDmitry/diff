@@ -194,7 +194,7 @@ static const char *op_names[] =
     "arctan", // OP_ATAN
 };
 
-static const char *var_names[] =
+const char *var_names[] =
 {
     "x"         ,
     "y"         ,
@@ -1398,19 +1398,19 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 #define getDBL dbl(node)
 #define getVAR var(node)
 
-const int max_node = 20;
+const int max_node = 10;
 const int max_div  =  1;
 const int max_pow  =  1;
 const int max_sqrt =  2;
 
 //___________________
 
-void Tree_optimize_var_main(Tree_node *root, Tree_node *system_vars[])
+void Tree_optimize_var_main(Tree_node **root, Tree_node *system_vars[])
 {
     log_header(__PRETTY_FUNCTION__);
 
 
-    if (Tree_verify(root) == false)
+    if (Tree_verify(*root) == false)
     {
         log_error("Can't do optimize_var, because the tree is invalid.\n");
         return;
@@ -1429,8 +1429,9 @@ void Tree_optimize_var_main(Tree_node *root, Tree_node *system_vars[])
     int num_pow    =     0;
     int num_sqrt   =     0;
 
-    Tree_optimize_var_execute(root, system_vars, &vars_index, &num_node, &num_div, &num_pow, &num_sqrt);
-    Tree_vars_update(root);
+    Tree_optimize_main(root);
+    Tree_optimize_var_execute(*root, system_vars, &vars_index, &num_node, &num_div, &num_pow, &num_sqrt);
+    Tree_vars_update(*root);
 
     log_end_header();
 }
@@ -1697,7 +1698,7 @@ static double Tree_get_value_in_var(Tree_node *node, Tree_node *system_vars[],  
                                                                                 const double z_val)
 {
     assert(node       !=  nullptr);
-    assert(node->type == NODE_NUM);
+    assert(node->type == NODE_VAR);
 
     switch (getVAR)
     {
@@ -2136,23 +2137,24 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream,
             return;                                             \
         }
 
-#define tex_system_var(VAR_NAME)                                \
-        if (getVAR == VAR_NAME)                                 \
-        {                                                       \
-            if (sys_vars == nullptr)                            \
-            {                                                   \
-                log_error("sys_vars is nullptr. Can't access"   \
-                          "the system variable.\n");            \
-                return;                                         \
-            }                                                   \
-            if (sys_vars[VAR_NAME] == nullptr)                  \
-            {                                                   \
-                log_error("sys_vars[VAR_NAME] is nullptr."      \
-                          "Can't access the system variable."   \
-                          "\n");                                \
-            }                                                   \
-            Tree_dump_tex_dfs_make(sys_vars[VAR_NAME], false);  \
-            return;                                             \
+#define tex_system_var(VAR_NAME)                                                                                    \
+        if (getVAR == VAR_NAME)                                                                                     \
+        {                                                                                                           \
+            if (sys_vars == nullptr)                                                                                \
+            {                                                                                                       \
+                log_error("sys_vars is nullptr. Can't access"                                                       \
+                          "the system variable.\n");                                                                \
+                return;                                                                                             \
+            }                                                                                                       \
+            if (sys_vars[VAR_NAME] == nullptr)                                                                      \
+            {                                                                                                       \
+                log_error("sys_vars[VAR_NAME] is nullptr."                                                          \
+                          "Can't access the system variable."                                                       \
+                          "\n");                                                                                    \
+            }                                                                                                       \
+            double dbl = Tree_get_value_in_point(node, sys_vars, x_val, y_val, z_val);                              \
+            dump_tex_num(dbl, stream);                                                                              \
+            return;                                                                                                 \
         }
 
 //___________________
@@ -2336,9 +2338,9 @@ void Tex_head(const char *file, FILE **stream)
 
 void Tex_tree(Tree_node *root, FILE *const stream,  const char *text_before,
                                                     const char *text_after , Tree_node *system_vars[],
-              const double x_val,
-              const double y_val,
-              const double z_val)
+              double x_val,
+              double y_val,
+              double z_val)
 {
     log_header(__PRETTY_FUNCTION__);
 
@@ -2366,7 +2368,14 @@ void Tex_tree(Tree_node *root, FILE *const stream,  const char *text_before,
     {
         Tree_dump_tex_dfs(root, false, stream, false, nullptr);
     }
-    else Tree_dump_tex_dfs(root, false, stream, true , system_vars, x_val, y_val, z_val);
+    else
+    {
+        x_val = (approx_equal(x_val, POISON)) ? 0 : x_val;
+        y_val = (approx_equal(y_val, POISON)) ? 0 : y_val;
+        z_val = (approx_equal(z_val, POISON)) ? 0 : z_val;
+
+        Tree_dump_tex_dfs(root, false, stream, true , system_vars, x_val, y_val, z_val);
+    }
 
     if (text_after  != nullptr) fprintf(stream, "%s", text_after );
 
