@@ -39,7 +39,6 @@
 #define        op(node) (node)->value.op
 #define       dbl(node) (node)->value.dbl
 #define       var(node) (node)->value.var
-#define tree_vars(node) (node)->tree_vars
 
 #define   l(node) (node)->left
 #define   r(node) (node)->right

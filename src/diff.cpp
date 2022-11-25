@@ -19,7 +19,6 @@
 static bool         Tree_verify             (                           Tree_node *const root);
 static void         Tree_verify_dfs         (unsigned int *const err,   Tree_node *const root,
                                                                         Tree_node *const node);
-static bool         Tree_vars_verify        (                           Tree_node *const node);
 static void         print_error_messages    (unsigned int        err);
 //--------------------------------------------------------------------------------------------------------------------------
 static void         dfs_dtor                (Tree_node *const node);
@@ -34,9 +33,6 @@ static Tree_node   *parse_op_pow            (const char **data);
 static Tree_node   *parse_expretion         (const char **data);
 static Tree_node   *parse_int               (const char **data);
 //--------------------------------------------------------------------------------------------------------------------------
-static bool         is_char_var             (const char c);
-static VAR          get_diff_var            (VAR var);
-//--------------------------------------------------------------------------------------------------------------------------
 static void         Tree_optimize_execute   (Tree_node **node);
 static bool         Tree_optimize_numbers   (Tree_node *node);
 static bool         Tree_optimize_add_main  (Tree_node **node);
@@ -46,8 +42,9 @@ static bool         Tree_optimize_div_main  (Tree_node **node);
 static bool         Tree_optimize_pow_main  (Tree_node **node);
 static void         Tree_optimize_all       (Tree_node **node, Tree_node **null_son, Tree_node **good_son);
 //--------------------------------------------------------------------------------------------------------------------------
-static void         Tree_vars_update        (Tree_node *const node);
 static double       Tree_counter            (const double left, const double right, TYPE_OP op);
+static bool         is_char_var             (const char c);
+static VAR          get_diff_var            (VAR var);
 //--------------------------------------------------------------------------------------------------------------------------
 static Tree_node   *diff_execute            (Tree_node *const node, VAR var, bool d_mode);
 static Tree_node   *diff_op_var             (Tree_node *const node, VAR var, bool d_mode);
@@ -87,7 +84,6 @@ static void         print_Tree_node         (Tree_node *node, int *const node_nu
                                                                                                             GRAPHVIZ_COLOR     color, 
                                                                                                             const char    *node_type,
                                                                                                             const char        *value);
-static void         get_str_tree_vars           (Tree_node *node, char *const str);
 //--------------------------------------------------------------------------------------------------------------------------
 static void         Tree_dump_txt_dfs           (Tree_node *node, bool bracket);
 static void         dump_txt_num                (Tree_node *node);
@@ -150,8 +146,6 @@ static const Tree_node default_node =
     nullptr     , // left
     nullptr     , // right
     nullptr     , // prev
-
-          0     , // tree_vars
 
         0.0       // dbl
 };
@@ -261,8 +255,6 @@ enum VERIFY_ERROR
     TERMINAL_OP         ,
     NON_TERMINAL_VAR    ,
     NON_TERMINAL_NUM    ,
-
-    INVALID_TREE_VARS   ,
 };
 
 static const char *verify_error_messages[] =
@@ -277,8 +269,6 @@ static const char *verify_error_messages[] =
     "Operation-type node is     terminal.\n",
     " Variable-type node is not terminal.\n",
     "   Number-type node is not terminal.\n",
-    
-    "Invalid tree_vars-values in nodes.\n"  ,
 };
 
 const char *tex_header =
@@ -323,7 +313,6 @@ const char *tex_header =
 #define getOP            op(node)
 #define getDBL          dbl(node)
 #define getVAR          var(node)
-#define TREE_VARS tree_vars(node)
 
 //___________________
 
@@ -366,24 +355,6 @@ static void Tree_verify_dfs(unsigned int *const err,    Tree_node *const root,
     if      (node->type == NODE_OP  &&  is_terminal_node) (*err) = (*err) | (1 << TERMINAL_OP     );
     else if (node->type == NODE_NUM && !is_terminal_node) (*err) = (*err) | (1 << NON_TERMINAL_NUM);
     else if (node->type == NODE_VAR && !is_terminal_node) (*err) = (*err) | (1 << NON_TERMINAL_VAR);
-
-    if (*err == 0 && !Tree_vars_verify(node))             (*err) = (*err) | (1 << INVALID_TREE_VARS);
-}
-
-static bool Tree_vars_verify(Tree_node *const node)
-{
-    switch(node->type)
-    {
-        case NODE_NUM: return TREE_VARS ==              0;
-        case NODE_VAR: return TREE_VARS == (1u << getVAR);
-        case NODE_OP : return TREE_VARS == (tree_vars(getL) | tree_vars(getR));
-
-        case NODE_UNDEF:
-        default        : log_error(      "default case in Tree_vars_verify(): node-type = %d.\n", node->type);
-                         assert(false && "default case in Tree_vars_verify()");
-                         break;
-    }
-    return false;
 }
 
 static void print_error_messages(unsigned int err)
@@ -415,7 +386,6 @@ void node_op_ctor(Tree_node *const node,    TYPE_OP             value,
     getR      =    right;
     getP      =     prev;
     getOP     =    value;
-    TREE_VARS =        0;
 
     p(getL) = node;
     p(getR) = node;
@@ -425,8 +395,6 @@ void node_op_ctor(Tree_node *const node,    TYPE_OP             value,
     {
         p(getL) = node;
         p(getR) = node;
-
-        TREE_VARS = tree_vars(getL) | tree_vars(getR);
     }
 }
 
@@ -440,7 +408,6 @@ void node_num_ctor(Tree_node *const node,   const double    value,
     getL      =  nullptr;
     getR      =  nullptr;
     getP      =     prev;
-    TREE_VARS =        0;
     getDBL    =    value;
 }
 
@@ -454,7 +421,6 @@ void node_var_ctor(Tree_node *const node,   VAR             value,
     getL      =    nullptr;
     getR      =    nullptr;
     getP      =       prev;
-    TREE_VARS = 1 << value;
     getVAR    =      value;
 }
 
@@ -816,7 +782,6 @@ void Tree_optimize_main(Tree_node **root)
     }
 
     Tree_optimize_execute( root);
-    Tree_vars_update     (*root);
     Tree_verify          (*root);
     log_end_header       (     );
 }
@@ -1100,20 +1065,6 @@ static void Tree_optimize_all(Tree_node **node, Tree_node **null_son, Tree_node 
     node_dtor(*node);
 }
 
-static void Tree_vars_update(Tree_node *const node)
-{
-    assert(node != nullptr);
-
-    if (l(node) != nullptr &&
-        r(node) != nullptr   )
-    {
-        Tree_vars_update(l(node));
-        Tree_vars_update(r(node));
-
-        tree_vars(node) = tree_vars(l(node)) | tree_vars(r(node));
-    }
-}
-
 //___________________
 
 #undef getL
@@ -1275,17 +1226,6 @@ static Tree_node *diff_op_pow(Tree_node *const node, VAR var, bool d_mode)
 
 //_____________________________
 
-/*
-static void diff_prev_init(Tree_node *diff_node, Tree_node *prev)
-{
-    assert(diff_node);
-
-    p(diff_node) = prev;
-
-    if (l(diff_node)) diff_prev_init(l(diff_node), diff_node);
-    if (r(diff_node)) diff_prev_init(r(diff_node), diff_node);
-}
-*/
 static Tree_node *Tree_copy(Tree_node *cp_from)
 {
     assert(cp_from != nullptr);
@@ -1318,10 +1258,10 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 #define getDBL dbl(node)
 #define getVAR var(node)
 
-const int max_node = 10;
-const int max_div  =  1;
-const int max_pow  =  1;
-const int max_sqrt =  2;
+const int MAX_NODE = 10;
+const int MAX_DIV  =  1;
+const int MAX_POW  =  1;
+const int MAX_SQRT =  2;
 
 //___________________
 
@@ -1351,7 +1291,6 @@ void Tree_optimize_var_main(Tree_node **root, Tree_node *system_vars[])
 
     Tree_optimize_main(root);
     Tree_optimize_var_execute(*root, system_vars, &vars_index, &num_node, &num_div, &num_pow, &num_sqrt);
-    Tree_vars_update(*root);
 
     log_end_header();
 }
@@ -1402,10 +1341,10 @@ static void Tree_optimize_var_execute(Tree_node *node, Tree_node *system_vars[],
                           break;
         }
 
-        if (*tree_num_node > max_node ||
-            *tree_num_div  > max_div  ||
-            *tree_num_pow  > max_pow  ||
-            *tree_num_sqrt > max_sqrt   )
+        if (*tree_num_node > MAX_NODE ||
+            *tree_num_div  > MAX_DIV  ||
+            *tree_num_pow  > MAX_POW  ||
+            *tree_num_sqrt > MAX_SQRT   )
         {
             make_var_change(node, system_vars, vars_index);
             *tree_num_node = 1;
@@ -1435,7 +1374,6 @@ static void make_var_change(Tree_node *node, Tree_node *system_vars[], int *cons
         
         if (is_new_var)             // check if there was no equivalent tree replaced by a system variable before
         {
-            Tree_vars_update(node);
             getP = nullptr;
         }
         else Tree_dtor(node);       // delete the node, because there was the duplicate of it before
@@ -1446,7 +1384,6 @@ static void make_var_change(Tree_node *node, Tree_node *system_vars[], int *cons
 
         if (is_new_var)             // check if there was no equivalent tree replaced by a system variable before
         {
-            Tree_vars_update(node);
             getP = nullptr;
         }
         else Tree_dtor(node);       // delete the node, because there was the duplicate of it before
@@ -1559,8 +1496,7 @@ static bool Tree_node_cmp(Tree_node *first, Tree_node *second)
 
     if (value_cmp(first, second)              &&
         edge_cmp(l(first), l(second))         &&
-        edge_cmp(r(first), r(second))         &&
-        tree_vars(first) == tree_vars(second)
+        edge_cmp(r(first), r(second))
         ) 
         return true;
 
@@ -1783,36 +1719,17 @@ static void print_Tree_node(Tree_node *node, int *const node_number, FILE *const
     assert(node_type != nullptr);
     assert(value     != nullptr);
 
-    char str_tree_vars[VALUE_SIZE] = {};
-     get_str_tree_vars(node, str_tree_vars);
-
-    fprintf(stream, "node%d[color=\"%s\", fillcolor=\"%s\", label=\"{cur = %p\\n | prev = %p\\n | type = %s\\n | %s | %s | {left = %p | right = %p}}\"]\n",
+    fprintf(stream, "node%d[color=\"%s\", fillcolor=\"%s\", label=\"{cur = %p\\n | prev = %p\\n | type = %s\\n | %s | {left = %p | right = %p}}\"]\n",
                         *node_number,
                                     graphviz_color_names[color],
                                                       graphviz_color_names[fillcolor],
                                                                            node,
                                                                                           getP,
                                                                                                          node_type,
-                                                                                                                 str_tree_vars,
-                                                                                                                      value,
-                                                                                                                                   getL,
-                                                                                                                                                getR);
+                                                                                                                 value,
+                                                                                                                              getL,
+                                                                                                                                           getR);
     *node_number = *node_number + 1;
-}
-
-static void get_str_tree_vars(Tree_node *node, char *const str)
-{
-    assert(node != nullptr);
-    assert(str  != nullptr);
-
-    size_t i = 0;
-    for (; i * sizeof(char *) < sizeof(var_names); ++i)
-    {
-        if ((1 << i) & TREE_VARS) str[i] = '1';
-        else                      str[i] = '0';
-    }
-    while (i > 1 && str[i - 1] == '0') --i;
-    str[i]   = '\0';
 }
 
 /*_____________________________________________________________________*/

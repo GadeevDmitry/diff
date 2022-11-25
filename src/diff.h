@@ -64,8 +64,6 @@ struct Tree_node
     Tree_node *right;
     Tree_node * prev;
 
-    unsigned int tree_vars;
-
     union
     {
         double      dbl;
