@@ -657,6 +657,147 @@ bool Tree_parsing_main(Tree_node *const root, const char *file)
     return true;
 }
 
+#define descent_err_check(node) if (node == nullptr) { return nullptr; }
+
+static Tree_node *parse_general(const char **data)
+{
+    assert( data != nullptr);
+    assert(*data != nullptr);
+
+    Tree_node *ret = parse_op_add_sub(data);
+    descent_err_check(ret);
+
+    if (**data == '\0') return ret;
+    return nullptr;
+}
+
+static Tree_node *parse_op_add_sub(const char **data)
+{
+    assert( data != nullptr);
+    assert(*data != nullptr);
+
+    Tree_node *val = parse_op_mul_div(data);
+    descent_err_check(val);
+
+    while (**data == '+' || **data == '-')
+    {
+        TYPE_OP cur_op = (**data == '+') ? OP_ADD : OP_SUB;
+        *data += 1;
+
+        Tree_node *val2 = parse_op_mul_div(data);
+        if (val2 == nullptr) { Tree_dtor(val); return nullptr; }
+
+        val = new_node_op(cur_op, val, val2);
+    }
+
+    return val;
+}
+
+static Tree_node *parse_op_mul_div(const char **data)
+{
+    assert( data != nullptr);
+    assert(*data != nullptr);
+
+    Tree_node *val = parse_op_pow(data);
+    descent_err_check(val);
+
+    while (**data == '*' || **data == '/')
+    {
+        TYPE_OP cur_op = (**data == '*') ? OP_MUL : OP_DIV;
+        *data += 1;
+
+        Tree_node *val2 = parse_op_pow(data);
+        if (val2 == nullptr) { Tree_dtor(val); return nullptr; }
+
+        val = new_node_op(cur_op, val, val2);
+    }
+
+    return val;
+}
+
+static Tree_node *parse_op_pow(const char **data)
+{
+    assert( data != nullptr);
+    assert(*data != nullptr);
+
+    Tree_node *val = parse_expretion(data);
+    descent_err_check(val);
+
+    if (**data == '^')
+    {
+        TYPE_OP cur_op = OP_POW;
+        *data += 1;
+
+        Tree_node *val2 = parse_expretion(data);
+        if (val2 == nullptr) { Tree_dtor(val); return nullptr; }
+
+        val = new_node_op(cur_op, val, val2);
+    }
+
+    return val;
+}
+
+//___________________
+
+#define UNARY(str, n)                   \
+    if (!strncmp(*data, str, n))        \
+    {                                   \
+        *data += n;                     \
+                                        \
+        ret = parse_op_add_sub(data);   \
+        descent_err_check(ret);         \
+                                        \
+        if (**data != ')')              \
+        {                               \
+            Tree_dtor(ret);             \
+            return nullptr;             \
+        }                               \
+        *data += 1;                     \
+        return ret;                     \
+    }
+
+//___________________
+
+static Tree_node *parse_expetion(const char **data)
+{
+    assert( data != nullptr);
+    assert(*data != nullptr);
+
+    Tree_node *ret = nullptr;
+
+    #include "diff_gen.h"
+
+    if (**data == 'x') { *data += 1; return new_node_var(X); }
+    if (**data == 'y') { *data += 1; return new_node_var(Y); }
+    if (**data == 'z') { *data += 1; return new_node_var(Z); }
+
+    return parse_int(data);
+}
+
+//___________________
+
+#undef UNARY
+
+//___________________
+
+static Tree_node *parse_int(const char **data)
+{
+    assert( data != nullptr);
+    assert(*data != nullptr);
+
+    double val = 0;
+    const char *s_before = *data;
+
+    while (**data >= '0' && **data <= '9')
+    {
+        val = 10 * val + (**data - '0');
+        *data += 1;
+    }
+
+    if (s_before == *data) return nullptr;
+    return new_node_num(val);
+}
+
 static bool Tree_parsing_execute(Tree_node *const root, const char *data     ,
                                                         const int   data_size,
                                                         int *const  data_pos )
