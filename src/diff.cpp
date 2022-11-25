@@ -27,22 +27,15 @@ static void         dfs_dtor                (Tree_node *const node);
 static bool         Tree_parsing_execute    (Tree_node *const root, const char *data     ,
                                                                     const int   data_size,
                                                                     int *const  data_pos );
+static Tree_node   *parse_general           (const char **data);
+static Tree_node   *parse_op_add_sub        (const char **data);
+static Tree_node   *parse_op_mul_div        (const char **data);
+static Tree_node   *parse_op_pow            (const char **data);
+static Tree_node   *parse_expretion         (const char **data);
+static Tree_node   *parse_int               (const char **data);
+//--------------------------------------------------------------------------------------------------------------------------
 static bool         is_char_var             (const char c);
-static VAR          get_var_from_char       (const char c);
 static VAR          get_diff_var            (VAR var);
-
-static bool         push_next_node          (Tree_node **node, Tree_node *const root);
-static bool         push_prev_node          (Tree_node **node                       );
-
-static bool         put_dbl                 (Tree_node *const node, bool e_val, const char *data    ,
-                                                                                int *const  data_pos);
-static bool         get_dbl                 (double *const dbl,     const char *data    ,
-                                                                    int *const  data_pos);
-
-static bool         put_var                 (Tree_node *const node, const char possible_var);
-static bool         put_op                  (Tree_node *const node, const char *data     ,
-                                                                    const int   data_size,
-                                                                    int *const  data_pos );
 //--------------------------------------------------------------------------------------------------------------------------
 static void         Tree_optimize_execute   (Tree_node **node);
 static bool         Tree_optimize_numbers   (Tree_node *node);
@@ -60,7 +53,6 @@ static Tree_node   *diff_execute            (Tree_node *const node, VAR var, boo
 static Tree_node   *diff_op_var             (Tree_node *const node, VAR var, bool d_mode);
 static Tree_node   *diff_op_case            (Tree_node *const node, VAR var, bool d_mode);
 static Tree_node   *diff_op_pow             (Tree_node *const node, VAR var, bool d_mode);
-static void         diff_prev_init          (Tree_node *diff_node, Tree_node *prev);
 static Tree_node   *Tree_copy               (Tree_node *cp_from);
 //--------------------------------------------------------------------------------------------------------------------------
 static void Tree_optimize_var_execute(Tree_node *node, Tree_node *system_vars[], int *const vars_index   ,
@@ -425,8 +417,17 @@ void node_op_ctor(Tree_node *const node,    TYPE_OP             value,
     getOP     =    value;
     TREE_VARS =        0;
 
+    p(getL) = node;
+    p(getR) = node;
+
     if (getL != nullptr &&
-        getR != nullptr   ) TREE_VARS = tree_vars(getL) | tree_vars(getR);
+        getR != nullptr   )
+    {
+        p(getL) = node;
+        p(getR) = node;
+
+        TREE_VARS = tree_vars(getL) | tree_vars(getR);
+    }
 }
 
 void node_num_ctor(Tree_node *const node,   const double    value,
@@ -600,18 +601,6 @@ static bool is_char_var(const char c)
     return c == 'x' || c == 'y' || c == 'z';
 }
 
-static VAR get_var_from_char(const char c)
-{
-    switch (c)
-    {
-        case 'x': return X;
-        case 'y': return Y;
-        case 'z': return Z;
-        default : assert(false && "default case in get_var_from_char()");
-    }
-    return X;
-}
-
 static VAR get_diff_var(VAR var)
 {
     switch (var)
@@ -626,35 +615,37 @@ static VAR get_diff_var(VAR var)
 
 /*_____________________________________________________________________*/
 
-bool Tree_parsing_main(Tree_node *const root, const char *file)
+Tree_node *Tree_parsing_main(const char *file)
 {
     log_header(__PRETTY_FUNCTION__);
 
     assert(file != nullptr);
 
     int         data_size = 0;
-    int         data_pos  = 0;
     const char *data      = (char *) read_file(file, &data_size);
-    
+
     if (data == nullptr)
     {
         log_error     ("Can't open the file\n");
         log_end_header();
-        return false;
+        return nullptr;
     }
 
-    if (!Tree_parsing_execute(root, data, data_size, &data_pos))
+    const char *data_copy = data; //the original value of "data" pointer is needed to free the memory
+    Tree_node *ret = parse_general(&data_copy);
+
+    if (ret == nullptr)
     {
         log_error("Syntax_error in download file.\n");
         
         log_free      ((char *) data);
         log_end_header();
-        return false;
+        return nullptr;
     }
     log_free      ((char *) data);
     log_message   (GREEN "Parsing successful.\n" CANCEL);
     log_end_header();
-    return true;
+    return ret;
 }
 
 #define descent_err_check(node) if (node == nullptr) { return nullptr; }
@@ -667,7 +658,7 @@ static Tree_node *parse_general(const char **data)
     Tree_node *ret = parse_op_add_sub(data);
     descent_err_check(ret);
 
-    if (**data == '\0') return ret;
+    if (**data == '\n') return ret;
     return nullptr;
 }
 
@@ -689,7 +680,6 @@ static Tree_node *parse_op_add_sub(const char **data)
 
         val = new_node_op(cur_op, val, val2);
     }
-
     return val;
 }
 
@@ -711,7 +701,6 @@ static Tree_node *parse_op_mul_div(const char **data)
 
         val = new_node_op(cur_op, val, val2);
     }
-
     return val;
 }
 
@@ -733,37 +722,45 @@ static Tree_node *parse_op_pow(const char **data)
 
         val = new_node_op(cur_op, val, val2);
     }
-
     return val;
 }
 
 //___________________
 
-#define UNARY(str, n)                   \
-    if (!strncmp(*data, str, n))        \
-    {                                   \
-        *data += n;                     \
-                                        \
-        ret = parse_op_add_sub(data);   \
-        descent_err_check(ret);         \
-                                        \
-        if (**data != ')')              \
-        {                               \
-            Tree_dtor(ret);             \
-            return nullptr;             \
-        }                               \
-        *data += 1;                     \
-        return ret;                     \
+#define UNARY(str, n, op_val)                                   \
+    if (!strncmp(*data, str, n))                                \
+    {                                                           \
+        *data += n;                                             \
+                                                                \
+        val = parse_op_add_sub(data);                           \
+        descent_err_check(val);                                 \
+                                                                \
+        if (**data != ')') { Tree_dtor(val); return nullptr; }  \
+        *data += 1;                                             \
+                                                                \
+        Tree_node *ret = new_node_op(op_val, Nul, val);         \
+        return ret;                                             \
     }
 
 //___________________
 
-static Tree_node *parse_expetion(const char **data)
+static Tree_node *parse_expretion(const char **data)
 {
     assert( data != nullptr);
     assert(*data != nullptr);
 
-    Tree_node *ret = nullptr;
+    Tree_node *val = nullptr;
+
+    if (**data == '(')
+    {
+       *data += 1;
+        val = parse_op_add_sub(data);
+        
+        if (**data != ')') { Tree_dtor(val); return nullptr; }
+        *data += 1;
+
+        return val;
+    }
 
     #include "diff_gen.h"
 
@@ -795,268 +792,9 @@ static Tree_node *parse_int(const char **data)
     }
 
     if (s_before == *data) return nullptr;
+
     return new_node_num(val);
 }
-
-static bool Tree_parsing_execute(Tree_node *const root, const char *data     ,
-                                                        const int   data_size,
-                                                        int *const  data_pos )
-{
-    assert(root);
-    assert(data);
-    assert(data_pos);
-
-    Tree_node *cur_node = nullptr;
-    skip_spaces(data, data_size, data_pos);
-
-    while (*data_pos < data_size && data[*data_pos] != '\0')
-    {
-        char cur_char  = data[*data_pos];
-        *data_pos      =  1 + *data_pos ;
-
-        if      (cur_char == '('      ) { if (!push_next_node(&cur_node, root             )) return false; }
-        else if (cur_char == ')'      ) { if (!push_prev_node(&cur_node                   )) return false; }
-        else if (isdigit(cur_char)    ) { if (!put_dbl       ( cur_node, false, data      ,
-                                                                                data_pos  )) return false; }
-        else if (cur_char == 'e'      ) { if (!put_dbl       ( cur_node, true , data      ,
-                                                                                data_pos  )) return false; }
-        else if (is_char_var(cur_char)) { if (!put_var       ( cur_node, cur_char         )) return false; }
-        else                            { if (!put_op        ( cur_node,        data      ,
-                                                                                data_size ,
-                                                                                data_pos  )) return false; }
-
-        skip_spaces(data, data_size, data_pos);
-    }
-
-    if (cur_node != nullptr)
-    {
-        log_error("Finishes not in nullptr-value.\n");
-        return false;
-    }
-    return true;
-}
-
-
-//___________________
-
-#define getL     l(*node)
-#define getR     r(*node)
-#define getP     p(*node)
-#define getOP   op(*node)
-#define getDBL dbl(*node)
-#define getVAR var(*node)
-
-//___________________
-
-static bool push_next_node(Tree_node **node, Tree_node *const root)
-{
-    assert(root != nullptr);
-    assert(node != nullptr);
-
-    if (*node == nullptr)
-    {
-       *node = root;
-        return true;
-    }
-
-    if (getL != nullptr)
-    {
-        if (getR->type == NODE_UNDEF)
-        {
-            *node = getR;
-            return true;
-        }
-        else
-        {
-            log_error("Pushing in the third time.\n");
-            return false;
-        }
-    }
-
-    getL = new_node_undef(*node);
-    getR = new_node_undef(*node);
-    
-    if (getL == nullptr ||
-        getR == nullptr)
-    {
-        log_free(getL);
-        log_free(getR);
-
-        log_error("Can't create new node.\n");
-        return false;
-    }
-
-    *node = getL;
-    return  true;
-}
-
-static bool push_prev_node(Tree_node **node)
-{
-    assert(node != nullptr);
-
-    if (*node == nullptr)
-    {
-        log_error("Can't get previos node.\n");
-        return false;
-    }
-   
-   if (getP != nullptr && r(getP) == *node) op_ctor(getP, op(getP));
-
-   *node = getP;
-   return true;
-}
-
-//___________________
-
-#undef getL
-#undef getR
-#undef getP
-#undef getOP
-#undef getDBL
-#undef getVAR
-
-#define getL     l(node)
-#define getR     r(node)
-#define getP     p(node)
-#define getOP   op(node)
-#define getDBL dbl(node)
-#define getVAR var(node)
-
-//___________________
-
-static bool put_dbl(Tree_node *const node,  bool e_val, const char *data    ,
-                                                        int *const  data_pos)
-{
-    assert(data     != nullptr);
-    assert(data_pos != nullptr);
-    if    (node     == nullptr)
-    {
-        log_error("Can't put double-value in nullptr-node.\n");
-        return false;
-    }
-    if (getL != nullptr ||
-        getR != nullptr)
-    {
-        log_error("Can't put double-number in non-terminal node.\n");
-        return false;
-    }
-    if (node->type != NODE_UNDEF)
-    {
-        log_error("Redefinition of dbl-node.\n");
-        return false;
-    }
-    
-    if (e_val)
-    {
-        num_ctor(node, e);
-        return true;
-    }
-
-    double dbl =             0;
-   *data_pos   = *data_pos - 1;
-    
-    if (get_dbl(&dbl, data, data_pos))
-    {
-        num_ctor(node, dbl);
-        return true;
-    }
-
-    log_error("Can't put invalid-double in the node.\n");
-    return false;
-}
-
-static bool get_dbl(double *const dbl,  const char *data    ,
-                                        int *const  data_pos)
-{
-    assert(dbl      != nullptr);
-    assert(data     != nullptr);
-    assert(data_pos != nullptr);
-
-    char *dbl_end = nullptr;
-
-    *dbl          = strtod(data + *data_pos, &dbl_end);
-    *data_pos     = (int)             (dbl_end - data);
-
-    if (*dbl == HUGE_VAL)
-    {
-        log_error("Double-value is HUGE_VAL.\n");
-        return false;
-    }
-    return true;
-}
-
-static bool put_var(Tree_node *const node, const char possible_char)
-{
-    if (node == nullptr)
-    {
-        log_error("Can't put variable in nullptr-node.\n");
-        return false;
-    }
-    if (getL != nullptr ||
-        getR != nullptr)
-    {
-        log_error("Can't put variable in non-terminal mode");
-        return false;
-    }
-    if (node->type != NODE_UNDEF)
-    {
-        log_error("Redefinition of var-node.\n");
-        return false;
-    }
-
-    var_ctor(node, get_var_from_char(possible_char));
-    return true; 
-}
-
-static bool put_op(Tree_node *const node, const char *data     ,
-                                          const int   data_size,
-                                          int *const  data_pos )
-{
-    if (node == nullptr)
-    {
-        log_error("Can't put possible operation in nullptr-node.\n");
-        return false;
-    }
-    if (getL == nullptr ||
-        getR == nullptr)
-    {
-        log_error("Can't put possible operation in terminal node.\n");
-        return false;
-    }
-    if (node->type != NODE_UNDEF)
-    {
-        log_error("Redefinition of op-node.\n");
-        return false;
-    }
-
-    *data_pos = *data_pos - 1;
-
-    char           possible_op [VALUE_SIZE] = {};
-    get_word_split(possible_op, VALUE_SIZE, data, data_size, data_pos, "0123456789()xe");
-
-    for (size_t op_cnt = 0; sizeof(char *) * op_cnt != sizeof(op_names); ++op_cnt)
-    {
-        if (!strcasecmp(possible_op, op_names[op_cnt]))
-        {
-            op_ctor(node, (TYPE_OP)op_cnt);
-            return true;
-        }
-    }
-
-    log_error("Undefined operation.\n");
-    return false;
-}
-
-//___________________
-
-#undef getL
-#undef getR
-#undef getP
-#undef getOP
-#undef getDBL
-#undef getVAR
-
-//___________________
 
 /*_____________________________________________________________________*/
 
@@ -1429,7 +1167,7 @@ Tree_node *diff_main(Tree_node **root, const char *vars)
                                   diff_execute(*root, Z, true)));
                   break;
     }
-    diff_prev_init(diff_root, nullptr);
+    //diff_prev_init(diff_root, nullptr);
 
     return diff_root;
 }
@@ -1537,6 +1275,7 @@ static Tree_node *diff_op_pow(Tree_node *const node, VAR var, bool d_mode)
 
 //_____________________________
 
+/*
 static void diff_prev_init(Tree_node *diff_node, Tree_node *prev)
 {
     assert(diff_node);
@@ -1546,7 +1285,7 @@ static void diff_prev_init(Tree_node *diff_node, Tree_node *prev)
     if (l(diff_node)) diff_prev_init(l(diff_node), diff_node);
     if (r(diff_node)) diff_prev_init(r(diff_node), diff_node);
 }
-
+*/
 static Tree_node *Tree_copy(Tree_node *cp_from)
 {
     assert(cp_from != nullptr);
@@ -2684,7 +2423,7 @@ static bool Tree_get_bracket_op_unary(Tree_node *node, Tree_node *system_vars[],
 
     if (Tree_get_bracket_dfs(getR, system_vars, buff, buff_pos))
     {
-        sprintf(buff +*buff_pos, ")");
+        sprintf(buff + *buff_pos, ")");
         *buff_pos += 1;
     }
     return true;
