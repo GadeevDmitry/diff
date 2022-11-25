@@ -102,7 +102,7 @@ Tree_node  *new_node_undef          (                    Tree_node *const prev =
 void        node_dtor               (Tree_node *const node);
 void        Tree_dtor               (Tree_node *const root);
 //--------------------------------------------------------------------------------------------------------------------------
-bool        Tree_parsing_main       (const char *file);
+Tree_node  *Tree_parsing_main       (const char *file);
 void        Tree_optimize_main      (Tree_node **     root);
 void        Tree_optimize_var_main  (Tree_node **     root, Tree_node *system_vars[]);
 //--------------------------------------------------------------------------------------------------------------------------
