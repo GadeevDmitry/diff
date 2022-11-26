@@ -31,7 +31,7 @@ static Tree_node   *parse_op_add_sub        (const char **data);
 static Tree_node   *parse_op_mul_div        (const char **data);
 static Tree_node   *parse_op_pow            (const char **data);
 static Tree_node   *parse_expretion         (const char **data);
-static Tree_node   *parse_int               (const char **data);
+static Tree_node   *parse_dbl               (const char **data);
 //--------------------------------------------------------------------------------------------------------------------------
 static void         Tree_optimize_execute   (Tree_node **node);
 static bool         Tree_optimize_numbers   (Tree_node *node);
@@ -192,7 +192,7 @@ const char *plot_names[] =
 {
     "+"     ,
     "-"     ,
-    "*"     ,
+    "\\cdot",
     "/"     ,
     "sin"   ,
     "cos"   ,
@@ -734,7 +734,7 @@ static Tree_node *parse_expretion(const char **data)
     if (**data == 'y') { *data += 1; return new_node_var(Y); }
     if (**data == 'z') { *data += 1; return new_node_var(Z); }
 
-    return parse_int(data);
+    return parse_dbl(data);
 }
 
 //___________________
@@ -743,7 +743,7 @@ static Tree_node *parse_expretion(const char **data)
 
 //___________________
 
-static Tree_node *parse_int(const char **data)
+static Tree_node *parse_dbl(const char **data)
 {
     assert( data != nullptr);
     assert(*data != nullptr);
@@ -751,13 +751,8 @@ static Tree_node *parse_int(const char **data)
     double val = 0;
     const char *s_before = *data;
 
-    while (**data >= '0' && **data <= '9')
-    {
-        val = 10 * val + (**data - '0');
-        *data += 1;
-    }
-
-    if (s_before == *data) return nullptr;
+    val = strtod(*data, (char **) data);
+    if (val == HUGE_VAL || s_before == *data) return nullptr;
 
     return new_node_num(val);
 }
