@@ -173,7 +173,7 @@ static const char *op_names[] =
 {
     "+"     , // OP_ADD
     "-"     , // OP_SUB
-    "*"     , // OP_MUL
+    "\\cdot", // OP_MUL
     "/"     , // OP_DIV
     "sin"   , // OP_SIN
     "cos"   , // OP_COS
@@ -192,7 +192,7 @@ const char *plot_names[] =
 {
     "+"     ,
     "-"     ,
-    "\\cdot",
+    "*"     ,
     "/"     ,
     "sin"   ,
     "cos"   ,
@@ -597,6 +597,9 @@ Tree_node *Tree_parsing_main(const char *file)
         return nullptr;
     }
 
+    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    log_message("data = %p.\n", data);
+    //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     const char *data_copy = data; //the original value of "data" pointer is needed to free the memory
     Tree_node *ret = parse_general(&data_copy);
 
@@ -625,6 +628,9 @@ static Tree_node *parse_general(const char **data)
     descent_err_check(ret);
 
     if (**data == '\n') return ret;
+    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    log_error("general: last char != \'\\n\'.\n");
+    //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     return nullptr;
 }
 
@@ -701,11 +707,16 @@ static Tree_node *parse_op_pow(const char **data)
         val = parse_op_add_sub(data);                           \
         descent_err_check(val);                                 \
                                                                 \
-        if (**data != ')') { Tree_dtor(val); return nullptr; }  \
+        if (**data != ')')                                      \
+        {/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/                      \
+            log_error("no closed bracket on %p.\n", *data);     \
+         /*<<<<<<<<<<<<<<<<<<<<<<<<<<<<<*/                      \
+            Tree_dtor(val);                                     \
+            return nullptr;                                     \
+        }                                                       \
         *data += 1;                                             \
                                                                 \
-        Tree_node *ret = new_node_op(op_val, Nul, val);         \
-        return ret;                                             \
+        return new_node_op(op_val, Nul, val);                   \
     }
 
 //___________________
@@ -722,7 +733,14 @@ static Tree_node *parse_expretion(const char **data)
        *data += 1;
         val = parse_op_add_sub(data);
         
-        if (**data != ')') { Tree_dtor(val); return nullptr; }
+        if (**data != ')')
+        {
+            //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            log_error("no closed bracket on %p.\n", *data);
+            //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            Tree_dtor(val);
+            return nullptr;
+        }
         *data += 1;
 
         return val;
@@ -733,6 +751,7 @@ static Tree_node *parse_expretion(const char **data)
     if (**data == 'x') { *data += 1; return new_node_var(X); }
     if (**data == 'y') { *data += 1; return new_node_var(Y); }
     if (**data == 'z') { *data += 1; return new_node_var(Z); }
+    if (**data == 'e') { *data += 1; return new_node_num(e); }
 
     return parse_dbl(data);
 }
@@ -752,7 +771,12 @@ static Tree_node *parse_dbl(const char **data)
     const char *s_before = *data;
 
     val = strtod(*data, (char **) data);
-    if (val == HUGE_VAL || s_before == *data) return nullptr;
+    if (val == HUGE_VAL || s_before == *data)
+    {   //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        log_error("wrong double on %p.\n", *data);
+        //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        return nullptr;
+    }
 
     return new_node_num(val);
 }
