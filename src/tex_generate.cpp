@@ -46,7 +46,7 @@ void range_system   (const double min_val, const double max_val, const char c);
         Tex_head(file, &stream);                            \
         header         (stream);
 
-#define _$$      fprintf(stream, "\n$$\n");
+#define _$$     fprintf(stream, "\n$$\n");
 
 #define NEW_LINE(num)                                       \
         for (int i = 0; i < num; ++i)                       \
@@ -58,11 +58,8 @@ void range_system   (const double min_val, const double max_val, const char c);
 #define NEW_PAGE() fprintf(stream, "\n\\newpage\n");
 
 #define START_TASK()                                        \
-        tree      = new_node_undef(nullptr);                \
-        tree_diff = nullptr;                                \
-                                                            \
-        new_task         (stream);                          \
-        Tree_parsing_main(tree  , get_task());              \
+        new_task(stream);                                   \
+        tree = Tree_parsing_main(get_task());               \
                                                             \
         _$$                                                 \
         Tex_tree         (tree, stream, "f(x)=");           \
@@ -162,9 +159,9 @@ int main()
 
 //-------------------------------------------------------------------------------------------------------------------------------
 
-    START_TASK()
+    //START_TASK()
     
-    Tree_plot(tree, nullptr, nullptr, nullptr);
+    //Tree_plot(tree, nullptr, nullptr, nullptr);
 
     END()
 }
@@ -181,7 +178,7 @@ void header(FILE *const stream)
                         "}\n"
                         "\\end{center}\n");
     Tex_message(stream, "Здравствуйте, дорогие школьники, рады вас приветствовать на этом замечательном курсе, который "
-                        "даст Вам быстрый старт в спортивное дифференцирование. Этот курс подойдёт всем, в независимости "
+                        "даст Вам быстрый старт в дифференцирование. Этот курс подойдёт всем, в независимости "
                         "от начальных знаний и умений. Разбирая примеры разной сложности шаг за шагом, мы уверены, что "
                         "даже самый неспособный ученик сможет разобраться с материалом.\n\n");
     NEW_PAGE()
@@ -224,13 +221,16 @@ void Tex_system_vars(Tree_node *system_vars[], FILE *const stream)
 
 Tree_node *Teylor(Tree_node **tree, FILE *const stream, const char *text_f, const char *text_f_point, double *const dbl)
 {
+    assert( tree != nullptr);
+    assert(*tree != nullptr);
+
     Tree_node *tree_diff = diff_main(tree, "x");
 
     Tree_node *system_vars[VARS_SIZE] = {};
     Tree_optimize_var_main(tree, system_vars);
 
     _$$
-    Tex_tree       (*tree, stream, text_f);
+    Tex_tree(*tree, stream, text_f);
     _$$
     Tex_system_vars(system_vars, stream);
 

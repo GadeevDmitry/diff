@@ -2062,8 +2062,10 @@ static void Tree_dump_tex_op_unary(Tree_node *node, FILE *const stream, bool    
     assert(stream     != nullptr);
     assert(node->type == NODE_OP);
 
-    fprintf               (stream, " %s", op_names[getOP]);
-    Tree_dump_tex_dfs_make(getR, true);
+    fprintf(stream, " %s", op_names[getOP]);
+    
+    if (getR->type == NODE_OP)  Tree_dump_tex_dfs_make(getR, true);
+    else                        Tree_dump_tex_dfs_make(getR, false);
 }
 
 static void Tree_dump_tex_op_sqrt(Tree_node *node,  FILE *const stream, bool           is_val,
