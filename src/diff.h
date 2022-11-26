@@ -7,6 +7,7 @@ enum TYPE_NODE
     NODE_OP     ,
     NODE_NUM    ,
     NODE_VAR    ,
+    NODE_SYS    ,
 };
 
 enum TYPE_OP
@@ -25,7 +26,7 @@ enum TYPE_OP
     OP_CH       ,
     OP_ASIN     ,
     OP_ACOS     ,
-    OP_ATAN     
+    OP_ATAN     ,
 };
 
 enum VAR
@@ -36,24 +37,6 @@ enum VAR
     DX      ,
     DY      ,
     DZ      ,
-    ALPHA   ,
-    BETA    ,
-    GAMMA   ,
-    DELTA   ,
-    EPSILON ,
-    ETA     ,
-    THETA   ,
-    KAPPA   ,
-    LAMBDA  ,
-    MU      ,
-    NU      ,
-    XI      ,
-    RHO     ,
-    SIGMA   ,
-    TAU     ,
-    PHI     ,
-    PSI     ,
-    OMEGA   ,
 };
 
 struct Tree_node
@@ -69,6 +52,7 @@ struct Tree_node
         double      dbl;
         TYPE_OP      op;
         VAR         var;
+        int         sys;
     }
     value;
 };
@@ -85,6 +69,8 @@ void        node_num_ctor           (Tree_node *const node, const double        
                                                             Tree_node *const     prev = nullptr);
 void        node_var_ctor           (Tree_node *const node, VAR                 value          ,
                                                             Tree_node *const     prev = nullptr);
+void        node_sys_ctor           (Tree_node *const node, int                 value,
+                                                            Tree_node *const     prev = nullptr);
 void        node_undef_ctor         (Tree_node *const node, Tree_node *const     prev = nullptr);
 //--------------------------------------------------------------------------------------------------------------------------
 Tree_node  *new_node_op             (TYPE_OP   value,       Tree_node *const     prev = nullptr);
@@ -95,6 +81,7 @@ Tree_node  *new_node_op             (TYPE_OP   value           ,
 
 Tree_node  *new_node_num            (const double value, Tree_node *const prev = nullptr);
 Tree_node  *new_node_var            (VAR          value, Tree_node *const prev = nullptr);
+Tree_node  *new_node_sys            (int value,          Tree_node *const prev = nullptr);
 Tree_node  *new_node_undef          (                    Tree_node *const prev = nullptr);
 //--------------------------------------------------------------------------------------------------------------------------
 void        node_dtor               (Tree_node *const node);
@@ -102,13 +89,13 @@ void        Tree_dtor               (Tree_node *const root);
 //--------------------------------------------------------------------------------------------------------------------------
 Tree_node  *Tree_parsing_main       (const char *file);
 void        Tree_optimize_main      (Tree_node **     root);
-void        Tree_optimize_var_main  (Tree_node **     root, Tree_node *system_vars[]);
+void        Tree_optimize_var_main  (Tree_node **     root, Tree_node *system_vars[], const int sys_size);
 //--------------------------------------------------------------------------------------------------------------------------
-Tree_node  *diff_main               (Tree_node **root, const char *vars = "a");
+Tree_node  *diff_main               (Tree_node **root, Tree_node *system_vars[], const char *vars = "a");
 bool        Tree_get_bracket_fmt    (Tree_node * root, Tree_node *system_vars[], char *const buff);
-double      Tree_get_value_in_point (Tree_node * node, Tree_node *system_vars[],   const double x_val = 0,
-                                                                                        const double y_val = 0,
-                                                                                        const double z_val = 0);
+double      Tree_get_value_in_point (Tree_node * node, Tree_node *system_vars[],    const double x_val = 0,
+                                                                                    const double y_val = 0,
+                                                                                    const double z_val = 0);
 //--------------------------------------------------------------------------------------------------------------------------
 void        Tree_dump_graphviz      (Tree_node *root);
 void        Tree_dump_txt           (Tree_node *root);

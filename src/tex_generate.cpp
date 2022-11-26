@@ -72,9 +72,7 @@ void range_system   (const double min_val, const double max_val, const char c);
         tree      = nullptr;                                \
         tree_diff = nullptr;
 
-#define END()                                               \
-        Tree_dtor(tree);                                    \
-        Tex_end(stream);
+#define END() Tex_end(stream);
 
 /*____________________________________*/
 
@@ -90,8 +88,8 @@ int main()
     _$$
     Tex_tree(tree, stream, "f\'(x)=(", ")\'=");
 
-    tree_diff = diff_main(&tree, "x");
-    Tex_tree(tree_diff, stream, nullptr, "=");
+    tree_diff = diff_main(&tree, nullptr, "x");
+    Tex_tree(tree_diff, stream,  nullptr, "=");
     
     Tree_optimize_main(&tree_diff);
     Tex_tree(tree_diff, stream);
@@ -115,7 +113,7 @@ int main()
     _$$
     Tex_message (stream, "Осталось только взять производную:\n");
     _$$
-    tree_diff = diff_main(&tree, "x");
+    tree_diff = diff_main(&tree, nullptr, "x");
 
     Tex_tree(tree     , stream, "f\'(x)=(", ")\'=");
     Tex_tree(tree_diff, stream, nullptr, "=");
@@ -139,12 +137,12 @@ int main()
 
     double k_0 = 0, k_1 = 0, k_2 = 0;
 
-    tree_diff = Teylor(&tree     , stream,   "f(x)=",   "f(-2)=", &k_0);
+    tree_diff = Teylor(&tree     , stream,   "f(x)=",  "f(-2)=",  &k_0);
     
     Tex_message(stream, "Так как $\\pi^{e}<e^{\\pi}$, то:");
     tree      = Teylor(&tree_diff, stream,  "f'(x)=",  "f'(-2)=", &k_1);
     
-    Tex_message(stream, "И ежу очевидно, что:");
+    Tex_message(stream, "И ежу понятно, что:");
     tree_diff = Teylor(&tree     , stream, "f''(x)=", "f''(-2)=", &k_2);
 
     Tex_message(stream, "В итоге, получаем:");
@@ -205,15 +203,15 @@ extern const char *var_names[];
 
 void Tex_system_vars(Tree_node *system_vars[], FILE *const stream)
 {
-    assert(system_vars        != nullptr);
-    if    (system_vars[ALPHA] == nullptr) return;
+    assert(system_vars    != nullptr);
+    if    (system_vars[0] == nullptr) return;
 
     Tex_message(stream, ", где\n");
 
-    for (int i = ALPHA; i < VARS_SIZE && system_vars[i] != nullptr; ++i)
+    for (int i = 0; i < VARS_SIZE && system_vars[i] != nullptr; ++i)
     {
         _$$
-        Tex_message(stream, "%s = ", var_names[i]);
+        Tex_message(stream, "x_{%d} = ", i);
         Tex_tree   (system_vars[i], stream);
         _$$
     }
@@ -224,10 +222,10 @@ Tree_node *Teylor(Tree_node **tree, FILE *const stream, const char *text_f, cons
     assert( tree != nullptr);
     assert(*tree != nullptr);
 
-    Tree_node *tree_diff = diff_main(tree, "x");
+    Tree_node *tree_diff = diff_main(tree, nullptr, "x");
 
     Tree_node *system_vars[VARS_SIZE] = {};
-    Tree_optimize_var_main(tree, system_vars);
+    Tree_optimize_var_main(tree, system_vars, VARS_SIZE);
 
     _$$
     Tex_tree(*tree, stream, text_f);

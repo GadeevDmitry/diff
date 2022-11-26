@@ -16,10 +16,11 @@
 #define is_left_subtree(node)  node->prev->left  == node
 #define is_right_subtree(node) node->prev->right == node
 
-#define dL(node, var, d_mode) diff_execute((node)->left , var, d_mode)
-#define dR(node, var, d_mode) diff_execute((node)->right, var, d_mode)
-#define cL(node)              Tree_copy   ((node)->left )
-#define cR(node)              Tree_copy   ((node)->right)
+#define dL(node, system_vars, var, d_mode) diff_execute((node)->left , system_vars, var, d_mode)
+#define dR(node, system_vars, var, d_mode) diff_execute((node)->right, system_vars, var, d_mode)
+
+#define cL(node) Tree_copy((node)->left )
+#define cR(node) Tree_copy((node)->right)
 
 #define  Add(left, right) new_node_op (OP_ADD , left, right)
 #define  Sub(left, right) new_node_op (OP_SUB , left, right)
@@ -39,6 +40,7 @@
 #define        op(node) (node)->value.op
 #define       dbl(node) (node)->value.dbl
 #define       var(node) (node)->value.var
+#define       sys(node) (node)->value.sys
 
 #define   l(node) (node)->left
 #define   r(node) (node)->right
