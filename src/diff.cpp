@@ -118,7 +118,10 @@ static void Tree_dump_tex_var     (Tree_node *node, FILE *const stream, bool    
                                                                         Tree_node *sys_vars[],  const double x_val,
                                                                                                 const double y_val,
                                                                                                 const double z_val);
-
+static void Tree_dump_tex_sys     (Tree_node *node, FILE *const stream, bool           is_val,
+                                                                        Tree_node *sys_vars[],  const double x_val,
+                                                                                                const double y_val,
+                                                                                                const double z_val);
 static void Tree_dump_tex_op_unary(Tree_node *node, FILE *const stream, bool           is_val,
                                                                         Tree_node *sys_vars[],  const double x_val,
                                                                                                 const double y_val,
@@ -598,6 +601,33 @@ static VAR get_diff_var(VAR var)
 }
 
 /*_____________________________________________________________________*/
+
+Tree_node *Tree_parsing_buff(const char *buff)
+{
+    log_header(__PRETTY_FUNCTION__);
+
+    if (buff == nullptr)
+    {
+        log_error("The buff is nullptr.\n");
+        log_end_header();
+        return nullptr;
+    }
+
+    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    log_message("buff = %p.\n", buff);
+    //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    Tree_node *ret = parse_general(&buff);
+    
+    if (ret == nullptr)
+    {
+        log_error("Syntax_error in download file.\n");
+        log_end_header();
+        return nullptr;
+    }
+    log_message   (GREEN "Parsing successful.\n" CANCEL);
+    log_end_header();
+    return ret;
+}
 
 Tree_node *Tree_parsing_main(const char *file)
 {
@@ -1952,6 +1982,8 @@ static void Tree_dump_tex_system(char *const dump_tex, char *const dump_pdf, con
 #define Tree_dump_tex_op_unary_make(node)                                                           \
         Tree_dump_tex_op_unary     (node, stream, is_val, sys_vars, x_val, y_val, z_val)
 
+#define Tree_dump_tex_sys_make(node)                                                                \
+        Tree_dump_tex_sys     (node, stream, is_val, sys_vars, x_val, y_val, z_val)
 #define Tree_dump_tex_op_sqrt_make(node)                                                            \
         Tree_dump_tex_op_sqrt     (node, stream, is_val, sys_vars, x_val, y_val, z_val)
 
@@ -1976,9 +2008,9 @@ static void Tree_dump_tex_dfs(Tree_node *node, bool bracket, FILE *const stream,
 
     if (bracket) fprintf(stream, "\\left(");
 
-    if      (node->type == NODE_NUM) dump_tex_num             (node, stream);
-    else if (node->type == NODE_VAR) Tree_dump_tex_var_make   (node        );
-    else if (node->type == NODE_SYS) dump_tex_sys             (node, stream);
+    if      (node->type == NODE_NUM) dump_tex_num          (node, stream);
+    else if (node->type == NODE_VAR) Tree_dump_tex_var_make(node        );
+    else if (node->type == NODE_SYS) Tree_dump_tex_sys_make(node        );
     else if (getOP      ==   OP_SUB && Tree_dump_tex_op_sub_make(node));
     else
     {
@@ -2072,6 +2104,26 @@ static void Tree_dump_tex_var(Tree_node *node, FILE *const stream, bool         
 #undef tex_system_var
 
 //___________________
+
+static void Tree_dump_tex_sys(Tree_node *node, FILE *const stream, bool           is_val,
+                                                                    Tree_node *sys_vars[], const double x_val,
+                                                                                           const double y_val,
+                                                                                           const double z_val)
+{
+    assert(node       !=  nullptr);
+    assert(stream     !=  nullptr);
+    assert(node->type == NODE_SYS);
+
+    if (is_val == false)
+    {
+        fprintf(stream, " x_{%d}", getSYS);
+        return;
+    }
+
+    double dbl = Tree_get_value_in_point(node, sys_vars, x_val, y_val, z_val);
+    dump_tex_num(dbl, stream);
+    return;
+}
 
 static void Tree_dump_tex_op_unary(Tree_node *node, FILE *const stream, bool           is_val,
                                                                         Tree_node *sys_vars[],  const double x_val,
@@ -2171,14 +2223,6 @@ static bool Tree_dump_tex_op_sub(Tree_node *node,   FILE *const stream, bool    
 
 /*_____________________________________________________________________*/
 
-static void dump_tex_sys(Tree_node *node, FILE *const stream)
-{
-    assert(node   != nullptr);
-    assert(stream != nullptr);
-
-    fprintf(stream, " x_{%d}", getSYS);
-}
-
 static void dump_tex_num(Tree_node *node, FILE *const stream)
 {
     assert(node       !=  nullptr);
@@ -2248,9 +2292,7 @@ void Tex_tree(Tree_node *root, FILE *const stream,  const char *text_before,
 
     if (text_before != nullptr) fprintf(stream, "%s", text_before);
 
-    if (system_vars == nullptr  && approx_equal(x_val, POISON)
-                                && approx_equal(y_val, POISON)
-                                && approx_equal(z_val, POISON))
+    if (approx_equal(x_val, POISON) && approx_equal(y_val, POISON) && approx_equal(z_val, POISON))
     {
         Tree_dump_tex_dfs(root, false, stream, false, nullptr);
     }
