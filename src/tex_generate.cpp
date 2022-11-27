@@ -12,9 +12,13 @@
 
 static const int   TASK_SIZE =        100;
 static const int   VARS_SIZE =        100;
-static const int   BUFF_SIZE =       1000;
-static       int    cur_task =          1;
+static const int   BUFF_SIZE =      10000;
+
+static       int    CUR_TASK =          1;
 static const char      *file = "math.tex";
+
+const int WIDTH  = 600;
+const int HEIGHT = 450;
 
 char  task[TASK_SIZE] = {};
 
@@ -29,11 +33,20 @@ Tree_node *Teylor            (Tree_node **tree,         FILE *const stream, cons
                                                                                                 double *const dbl);
 //---------------------------------------------------------------------------------------------------------------------------
 void Tree_plot      (Tree_node *root, Tree_node *root_vars[],
-                     Tree_node *diff, Tree_node *diff_vars[],   const double x_min = POISON, const double x_max = POISON,
-                                                                const double y_min = POISON, const double y_max = POISON);
-bool func_init      (Tree_node *root, Tree_node *system_vars[], char *const bracket_fmt, bool is_diff);
-void func_system    (const char *root_fmt, const char *diff_fmt);
-void range_system   (const double min_val, const double max_val, const char c);
+                     Tree_node *diff, Tree_node *diff_vars[], FILE *const stream,
+                                                              const char  *label = nullptr, const double x_min = POISON,
+                                                                                            const double x_max = POISON,
+                                                                                            const double y_min = POISON,
+                                                                                            const double y_max = POISON);
+
+bool func_init      (Tree_node *root, Tree_node *system_vars[], char *const bracket_fmt, bool is_diff,  char      *buff,
+                                                                                                        int *const buff_pos);
+void func_system    (const char *root_fmt, const char *diff_fmt,                                        char      *buff,
+                                                                                                        int *const buff_pos);
+void range_system   (const double min_val, const double max_val, const char c,                          char      *buff,
+                                                                                                        int *const buff_pos);
+void print_buff     (char *buff, int *const buff_pos, const char *message );
+void settings       (char *cmd , int *const  cmd_pos, const char *filename);
 
 /*____________________________________*/
 
@@ -152,14 +165,49 @@ int main()
     Tex_message(stream, "x+"   ); dump_tex_num(k_2, stream);
     Tex_message(stream, "\\frac{x^2}{2}+o((x+3)^{2})");
     _$$
+    END_TASK()
+//-------------------------------------------------------------------------------------------------------------------------------
 
+    START_TASK()
+    Tex_message(stream, "Геометрический смысл производной.(Задача взята из вступительных экзаменов в первый класс "
+                        "среди китайских школьников). ");
+    Tex_message(stream, "Для того чтобы понять, в чём же смысл(геометрический) производной,\n\n"
+                        "1)Найдём производную:\n");
+
+    Tree_node *system_vars[VARS_SIZE] = {};
+    tree_diff =  diff_main(&tree, nullptr, "x");
+    Tree_optimize_var_main(&tree_diff, system_vars, VARS_SIZE);
+    _$$
+    Tex_tree(tree_diff, stream, "f'(x)=", nullptr, system_vars);
+    _$$
+    Tex_system_vars(system_vars, stream);
+
+    Tex_message(stream, "2)Вычислим значение производной в произволтной точке, например в x=3:");
+    
+    double  f_point = Tree_get_value_in_point(tree     , nullptr    , 3);
+    double df_point = Tree_get_value_in_point(tree_diff, system_vars, 3);
+    _$$
+    Tex_tree(tree_diff, stream, "f'(3)=", "=", system_vars, 3);
+    Tex_message(stream, "%lg", df_point);
+    _$$
+
+    Tex_message(stream, "3)Построим прямую с угловым коэффициентом, равным значению производной в точке 3, "
+                        "проходящую через точку 3.\n\n");
+    
+    char tangent_buff[BUFF_SIZE] = {};
+    sprintf(tangent_buff, "%lg+%lg*(x-3)\n", f_point, df_point);
+    Tree_node *tangent = Tree_parsing_buff(tangent_buff);
+
+    Tree_plot(tree, nullptr, tangent, nullptr, stream, "f(x) и касательная в точке x=3", 0, 5, 1, 7);
+
+    Tex_message(stream, "4)Заметим, что прямая, построенная нами, оказалась касательной к графику. Следовательно, "
+                        "геометрический смысл производной - угловой коэффициент касательной к графику.\n");
+    
+    for (int i = 0; i < VARS_SIZE; ++i) Tree_dtor(system_vars[i]);
+    Tree_dtor(tangent);
     END_TASK()
 
 //-------------------------------------------------------------------------------------------------------------------------------
-
-    //START_TASK()
-    
-    //Tree_plot(tree, nullptr, nullptr, nullptr);
 
     END()
 }
@@ -184,8 +232,8 @@ void header(FILE *const stream)
 
 char *get_task()
 {
-    sprintf(task, "base/task%d.txt", cur_task);
-    ++cur_task;
+    sprintf(task, "base/task%d.txt", CUR_TASK);
+    ++CUR_TASK;
 
     return task;
 }
@@ -194,7 +242,7 @@ void new_task(FILE *const stream)
 {
     Tex_message(stream, "{\\bf \\Large\n"
                         "Задача %d\n"
-                        "}\n",  cur_task);
+                        "}\n",  CUR_TASK);
 }
 
 /*_______________________________________________________________________________________________________________________________*/
@@ -247,40 +295,62 @@ Tree_node *Teylor(Tree_node **tree, FILE *const stream, const char *text_f, cons
 
 /*_______________________________________________________________________________________________________________________________*/
 
-#define system(s)                   \
-        system(s);                  \
-        log_message("%s\n", s);
+#define print_cmd(s) print_buff(cmd, cmd_pos, s)
 
 void Tree_plot(Tree_node *root, Tree_node *root_vars[],
-               Tree_node *diff, Tree_node *diff_vars[], const double x_min, const double x_max,
-                                                        const double y_min, const double y_max)
+               Tree_node *diff, Tree_node *diff_vars[], FILE *const stream,
+                                                        const char  *label, const double x_min, const double x_max,
+                                                                            const double y_min, const double y_max)
 {
     log_header(__PRETTY_FUNCTION__);
 
-    system("gnuplot");
-    //system("set xlabel \"x\"");
-    //system("set ylabel \"y\"");
-    //system("set grid");
+    static int cur_png = 0;
 
-    if (!approx_equal(x_min, POISON)) range_system(x_min, x_max, 'x');
-    if (!approx_equal(y_min, POISON)) range_system(y_min, y_max, 'y');
+    char filename[BUFF_SIZE] = {};
+    sprintf(filename, "math_png/image%d.png", cur_png);;
+    FILE *output = fopen(filename, "w");
+
+    char cmd[BUFF_SIZE] = {};
+    int cmd_pos = 0;
+
+    settings(cmd, &cmd_pos, filename);
+
+    if (!approx_equal(x_min, POISON)) range_system(x_min, x_max, 'x', cmd, &cmd_pos);
+    if (!approx_equal(y_min, POISON)) range_system(y_min, y_max, 'y', cmd, &cmd_pos);
 
     char root_fmt[BUFF_SIZE] = {};
     char diff_fmt[BUFF_SIZE] = {};
 
-    if (!(func_init(root, root_vars, root_fmt, false) && func_init(diff, diff_vars, diff_fmt, true)))
+    if (!(func_init(root, root_vars, root_fmt, false, cmd, &cmd_pos) && func_init(diff, diff_vars, diff_fmt, true, cmd, &cmd_pos)))
     {
         log_error("Init is invalid.\n");
         log_end_header();
         return;
     }
-    func_system(root_fmt, diff_fmt);
+    func_system(root_fmt, diff_fmt, cmd, &cmd_pos);
 
-    system("exit");
+    print_buff(cmd, &cmd_pos, "exit\"");
+    system(cmd);
+    fclose(output);
+
+    if (label != nullptr)
+    {
+        Tex_message(stream, "\\begin{figure}[h]\n"
+                            "\\includegraphics[width=0.5\\linewidth]{%s}\n"
+                            "\\caption{%s}\n"
+                            "\\end{figure}", filename, label);
+    }
+    else
+    {
+        Tex_message(stream, "\\begin{figure}[h]\n"
+                            "\\centering\n"
+                            "\\includegraphics[width=0.5\\linewidth]{%s}\n"
+                            "\\end{figure}", filename);
+    }
     log_end_header();
 }
 
-bool func_init(Tree_node *root, Tree_node *system_vars[], char *const bracket_fmt, bool is_diff)
+bool func_init(Tree_node *root, Tree_node *system_vars[], char *const bracket_fmt, bool is_diff, char *cmd, int *const cmd_pos)
 {
     if (root == nullptr)
     {
@@ -293,27 +363,59 @@ bool func_init(Tree_node *root, Tree_node *system_vars[], char *const bracket_fm
         return false;
     }
 
-    char cmd[2 * BUFF_SIZE] = {};
-    if (is_diff) sprintf(cmd, "df(x)=%s", bracket_fmt);
-    else         sprintf(cmd,  "f(x)=%s", bracket_fmt);
+    char init[2 * BUFF_SIZE] = {};
+    if (is_diff) sprintf(init, "df(x)=%s;", bracket_fmt);
+    else         sprintf(init,  "f(x)=%s;", bracket_fmt);
 
-    system(cmd);
+    print_cmd(init);
     return true;
 }
 
-void func_system(const char *root_fmt, const char *diff_fmt)
+void func_system(const char *root_fmt, const char *diff_fmt, char *cmd, int *const cmd_pos)
 {
     assert(root_fmt != nullptr);
     assert(diff_fmt != nullptr);
 
-    if      (root_fmt[0] && diff_fmt[0]) { /*system("plot f(x), df(x)");*/  }
-    else if (root_fmt[0])                { /*system("plot f(x)");*/         }
-    else if (diff_fmt[0])                { /*system("plot df(x)");*/        }
+    if      (root_fmt[0] && diff_fmt[0]) { print_cmd("plot f(x), df(x);"); }
+    else if (root_fmt[0])                { print_cmd("plot f(x);");        }
+    else if (diff_fmt[0])                { print_cmd("plot df(x);");       }
 }
 
-void range_system(const double min_val, const double max_val, const char c)
+void range_system(const double min_val, const double max_val, const char c, char *cmd, int *const cmd_pos)
 {
-    char    cmd[BUFF_SIZE] = {};
-    sprintf(cmd, "set %crange [%lg:%lg]", c, min_val, max_val);
-    system (cmd);
+    assert(cmd     != nullptr);
+    assert(cmd_pos != nullptr);
+
+    char    set[BUFF_SIZE] = {};
+    sprintf(set, "set %crange [%lg:%lg];", c, min_val, max_val);
+
+    print_cmd(set);
+}
+
+void print_buff(char *buff, int *const buff_pos, const char *message)
+{
+    assert(buff     != nullptr);
+    assert(buff_pos != nullptr);
+    assert(message  != nullptr);
+
+    int added = 0;
+    sprintf(buff + *buff_pos, "%s%n", message, &added);
+    *buff_pos += added;
+}
+
+void settings(char *cmd, int *const cmd_pos, const char *filename)
+{
+    assert(cmd      != nullptr);
+    assert(cmd_pos  != nullptr);   
+    assert(filename != nullptr);
+
+    char buff[BUFF_SIZE] = {};
+
+    sprintf(buff,   "gnuplot -persist -e \""
+                    "set xlabel \\\"x\\\";"
+                    "set ylabel \\\"y\\\";"
+                    "set terminal png size %d, %d;"
+                    "set output \\\"%s\\\";"
+                    "set grid;", WIDTH, HEIGHT, filename);
+    print_cmd(buff);
 }
