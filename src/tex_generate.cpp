@@ -272,8 +272,19 @@ Tree_node *Teylor(Tree_node **tree, FILE *const stream, const char *text_f, cons
 
     Tree_node *tree_diff = diff_main(tree, nullptr, "x");
 
+    Tree_dump_graphviz(*tree);
+
     Tree_node *system_vars[VARS_SIZE] = {};
     Tree_optimize_var_main(tree, system_vars, VARS_SIZE);
+    Tree_dump_graphviz(*tree);
+
+    log_message("sys_vars[0] = %p\n", system_vars[0]);
+    Tree_dump_graphviz(system_vars[0]);
+
+    log_message("sys_vars[1] = %p\n", system_vars[1]);
+    Tree_dump_graphviz(system_vars[1]);
+
+    log_message("sys_vars[2] = %p\n", system_vars[2]);
 
     _$$
     Tex_tree(*tree, stream, text_f);

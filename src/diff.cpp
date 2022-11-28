@@ -1339,7 +1339,7 @@ static Tree_node *Tree_copy(Tree_node *cp_from)
 #define getVAR var(node)
 #define getSYS sys(node)
 
-const int MAX_NODE = 10;
+const int MAX_NODE = 25;
 const int MAX_DIV  =  1;
 const int MAX_POW  =  1;
 const int MAX_SQRT =  2;
@@ -1449,6 +1449,11 @@ static void make_var_change(Tree_node *node, Tree_node *system_vars[], int *cons
     int system_var_ind = 0;
     bool is_new_var    = get_system_var(node, system_vars, vars_index, &system_var_ind, sys_size);
 
+    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    log_message(GREEN   "system_var_ind = %d\n"
+                        "is_new_var     = %d\n"
+                        "node           = %p\n\n" CANCEL, system_var_ind, is_new_var, node);
+    //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     if (r(getP) == node)
     {
         r(getP) = new_node_sys(system_var_ind, getP);
@@ -1556,7 +1561,7 @@ static bool Tree_cmp(Tree_node *first, Tree_node *second)
                 if (l(first) != nullptr)
                 {
                     return  (Tree_cmp(l(first), l(second)) && Tree_cmp(r(first), r(second))) ||
-                            (Tree_cmp(l(first), r(second)) && Tree_cmp(l(first), r(second)));
+                            (Tree_cmp(l(first), r(second)) && Tree_cmp(r(first), l(second)));
                 }
                 return true;
             }

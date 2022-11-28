@@ -91,61 +91,32 @@ f(-2)=\left(2\cdot(-2)-(-2)^{6}\right)\cdot\sqrt{1-3\cdot(-2)^{5}}=-669.722
 $$
 Так как $\pi^{e}<e^{\pi}$, то:
 $$
-f'(x)= x_{0}+ x_{2}
-$$
-, где
-
-$$
-x_{0} = \left(2- x^{5}\cdot6\right)\cdot\sqrt{1-3\cdot x^{5}}
+f'(x)=\left(2- x^{5}\cdot6\right)\cdot\sqrt{1-3\cdot x^{5}}+\left(2\cdot x- x^{6}\right)\cdot\left(\frac{-3\cdot\left( x^{4}\cdot5\right)}{2\cdot\sqrt{1-3\cdot x^{5}}}\right)
 $$
 
 $$
-x_{1} = 2\cdot\sqrt{1-3\cdot x^{5}}
-$$
-
-$$
-x_{2} = \left(2\cdot x- x^{6}\right)\cdot\left(\frac{-3\cdot\left( x^{4}\cdot5\right)}{ x_{1}}\right)
-$$
-
-$$
-f'(-2)=1910.68+828.522=2739.2
+f'(-2)=\left(2-(-2)^{5}\cdot6\right)\cdot\sqrt{1-3\cdot(-2)^{5}}+\left(2\cdot(-2)-(-2)^{6}\right)\cdot\left(\frac{-3\cdot\left((-2)^{4}\cdot5\right)}{2\cdot\sqrt{1-3\cdot(-2)^{5}}}\right)=2739.2
 $$
 И ежу понятно, что:
 $$
-f''(x)= x_{0}+ x_{2}+\left( x_{2}+ x_{6}\right)
+f''(x)= x_{0}+ x_{2}
 $$
 , где
 
 $$
-x_{0} = \left(- x^{4}\cdot5\cdot6\right)\cdot\sqrt{1-3\cdot x^{5}}
+x_{0} = \left(- x^{4}\cdot5\cdot6\right)\cdot\sqrt{1-3\cdot x^{5}}+\left(2- x^{5}\cdot6\right)\cdot\left(\frac{-3\cdot\left( x^{4}\cdot5\right)}{2\cdot\sqrt{1-3\cdot x^{5}}}\right)
 $$
 
 $$
-x_{1} = 2\cdot\sqrt{1-3\cdot x^{5}}
+x_{1} = \left(-3\cdot\left( x^{3}\cdot4\cdot5\right)\right)\cdot\left(2\cdot\sqrt{1-3\cdot x^{5}}\right)-\left(-3\cdot\left( x^{4}\cdot5\right)\right)\cdot\left(2\cdot\left(\frac{-3\cdot\left( x^{4}\cdot5\right)}{2\cdot\sqrt{1-3\cdot x^{5}}}\right)\right)
 $$
 
 $$
-x_{2} = \left(2- x^{5}\cdot6\right)\cdot\left(\frac{-3\cdot\left( x^{4}\cdot5\right)}{ x_{1}}\right)
+x_{2} = \left(2- x^{5}\cdot6\right)\cdot\left(\frac{-3\cdot\left( x^{4}\cdot5\right)}{2\cdot\sqrt{1-3\cdot x^{5}}}\right)+\left(2\cdot x- x^{6}\right)\cdot\left(\frac{ x_{1}}{\left(2\cdot\sqrt{1-3\cdot x^{5}}\right)^{2}}\right)
 $$
 
 $$
-x_{3} = -3\cdot\left( x^{3}\cdot4\cdot5\right)
-$$
-
-$$
-x_{4} = 2\cdot\left(\frac{-3\cdot\left( x^{4}\cdot5\right)}{ x_{1}}\right)
-$$
-
-$$
-x_{5} = \left(-3\cdot\left( x^{4}\cdot5\right)\right)\cdot x_{4}
-$$
-
-$$
-x_{6} = \left(2\cdot x- x^{6}\right)\cdot\left(\frac{ x_{3}\cdot x_{1}- x_{5}}{ x_{1}^{2}}\right)
-$$
-
-$$
-f''(-2)=(-4727.45)+(-2363.73)+\left((-2363.73)+(-632.069)\right)=-10087
+f''(-2)=(-7091.18)+(-2995.79)=-10087
 $$
 В итоге, получаем:
 $$
@@ -163,32 +134,24 @@ $$
 1)Найдём производную:
 
 $$
-f'(x)=\frac{ x_{0}\cdot x_{1}- x_{4}}{ x_{1}^{2}}
+f'(x)=\frac{ x_{0}- x_{2}}{\left( arctan\left(\sqrt{ x-1}\right)\cdot x^{ x}\right)^{2}}
 $$
 , где
 
 $$
-x_{0} =  sh x\cdot sh x+ ch x\cdot ch x
+x_{0} = \left( sh x\cdot sh x+ ch x\cdot ch x\right)\cdot\left( arctan\left(\sqrt{ x-1}\right)\cdot x^{ x}\right)
 $$
 
 $$
-x_{1} =  arctan\left(\sqrt{ x-1}\right)\cdot x^{ x}
+x_{1} = \frac{\frac{1}{2\cdot\sqrt{ x-1}}}{1+\left(\sqrt{ x-1}\right)^{2}}
 $$
 
 $$
-x_{2} = \frac{\frac{1}{2\cdot\sqrt{ x-1}}}{1+\left(\sqrt{ x-1}\right)^{2}}
-$$
-
-$$
-x_{3} =  arctan\left(\sqrt{ x-1}\right)\cdot\left( x^{ x}\cdot\left(\frac{ x}{ x}+ ln x\right)\right)
-$$
-
-$$
-x_{4} =  ch x\cdot sh x\cdot\left( x_{2}\cdot x^{ x}+ x_{3}\right)
+x_{2} =  ch x\cdot sh x\cdot\left( x_{1}\cdot x^{ x}+ arctan\left(\sqrt{ x-1}\right)\cdot\left( x^{ x}\cdot\left(\frac{ x}{ x}+ ln x\right)\right)\right)
 $$
 2)Вычислим значение производной в произволтной точке, например в x=3:
 $$
-f'(3)=\frac{201.716\cdot25.7935-5780.36}{25.7935^{2}}=-0.867862
+f'(3)=\frac{5202.96-5780.36}{\left( arctan\left(\sqrt{3-1}\right)\cdot3^{3}\right)^{2}}=-0.867862
 $$
 3)Построим прямую с угловым коэффициентом, равным значению производной в точке 3, проходящую через точку 3.
 
