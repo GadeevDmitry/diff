@@ -1449,11 +1449,6 @@ static void make_var_change(Tree_node *node, Tree_node *system_vars[], int *cons
     int system_var_ind = 0;
     bool is_new_var    = get_system_var(node, system_vars, vars_index, &system_var_ind, sys_size);
 
-    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    log_message(GREEN   "system_var_ind = %d\n"
-                        "is_new_var     = %d\n"
-                        "node           = %p\n\n" CANCEL, system_var_ind, is_new_var, node);
-    //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     if (r(getP) == node)
     {
         r(getP) = new_node_sys(system_var_ind, getP);
