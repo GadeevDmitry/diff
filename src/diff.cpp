@@ -219,7 +219,7 @@ const char *plot_names[] =
     "atan"  ,
 };
 
-const char *var_names[] =
+static const char *var_names[] =
 {
     "x"             ,
     "y"             ,
@@ -1624,7 +1624,7 @@ double Tree_get_value_in_point(Tree_node *node, Tree_node *system_vars[],   cons
         case NODE_OP :  {
                             double left  = Tree_get_value_in_point(getL, system_vars, x_val, y_val, z_val);
                             double right = Tree_get_value_in_point(getR, system_vars, x_val, y_val, z_val);
-                            
+
                             return Tree_counter(left, right, getOP);
                         }
     }
