@@ -1,0 +1,9 @@
+.vscode/
+TEST/
+base/
+dump_*/
+diff
+gen
+*.o
+*.html
+math.*
