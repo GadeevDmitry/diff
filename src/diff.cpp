@@ -1147,6 +1147,22 @@ static void Tree_optimize_all(Tree_node **node, Tree_node **null_son, Tree_node 
 
 //___________________
 
+Tree_node *tree_copy(const Tree_node *tree)
+{
+    switch(tree->type)
+    {
+        case NODE_NUM: return new_node_num(tree->value.dbl);
+        case NODE_OP : return new_node_op (tree->value.op , tree_copy(tree->left), tree_copy(tree->right));
+        case NODE_VAR: return new_node_var(tree->value.var);
+        
+        case NODE_UNDEF :
+        case NODE_SYS   :
+        default         : assert(false && "tree_copy bad cases");
+    }
+
+    return nullptr;
+}
+
 /*_____________________________________________________________________*/
 
 

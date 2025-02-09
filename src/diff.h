@@ -86,6 +86,7 @@ Tree_node  *new_node_undef          (                    Tree_node *const prev =
 //--------------------------------------------------------------------------------------------------------------------------
 void        node_dtor               (Tree_node *const node);
 void        Tree_dtor               (Tree_node *const root);
+Tree_node  *tree_copy               (const Tree_node *tree);
 //--------------------------------------------------------------------------------------------------------------------------
 Tree_node  *Tree_parsing_buff       (const char *buff);
 Tree_node  *Tree_parsing_main       (const char *file);
